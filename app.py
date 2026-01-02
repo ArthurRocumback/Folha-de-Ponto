@@ -9,11 +9,31 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+# ===== ROTAS DE TELAS =====
+
 @app.route('/')
-def index():
+@app.route('/login')
+def login():
+    return render_template('index.html')
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('index.html')
+
+@app.route('/perfil')
+def perfil():
+    return render_template('perfil.html')
+
+@app.route('/relatorios')
+def relatorios():
+    return render_template('Relatorio.html')
+
+@app.route('/usuarios')
+def usuarios():
     return render_template('Usuarios.html')
 
-# API para buscar opções do Modal
+# ===== APIs (mantidas) =====
+
 @app.route('/api/opcoes', methods=['GET'])
 def get_opcoes():
     conn = get_db_connection()
@@ -25,7 +45,6 @@ def get_opcoes():
         "cargos": [c['nome'] for c in cargos]
     })
 
-# API para listar utilizadores na tabela
 @app.route('/api/usuarios', methods=['GET'])
 def listar_usuarios():
     conn = get_db_connection()
@@ -33,23 +52,28 @@ def listar_usuarios():
     conn.close()
     return jsonify([dict(u) for u in usuarios])
 
-# API para salvar novo utilizador
 @app.route('/api/usuarios', methods=['POST'])
 def add_usuario():
     dados = request.json
-    try:
-        conn = get_db_connection()
-        conn.execute('''
-            INSERT INTO usuarios (nome, email, departamento, cargo, nivel_acesso, senha, matricula)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (dados['nome'], dados['email'], dados['departamento'], 
-              dados['cargo'], dados['nivel_acesso'], dados['senha'], dados['matricula']))
-        conn.commit()
-        conn.close()
-        return jsonify({"mensagem": "Sucesso"}), 201
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 400
+    conn = get_db_connection()
+    conn.execute(
+        '''
+        INSERT INTO usuarios (nome, email, departamento, cargo, nivel_acesso, senha, matricula)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''',
+        (
+            dados['nome'],
+            dados['email'],
+            dados['departamento'],
+            dados['cargo'],
+            dados['nivel_acesso'],
+            dados['senha'],
+            dados['matricula']
+        )
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"mensagem": "Sucesso"}), 201
 
 if __name__ == '__main__':
     app.run(debug=True)
-
