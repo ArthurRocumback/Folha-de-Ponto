@@ -1,83 +1,122 @@
 /**
- * LÓGICA DE GESTÃO DE USUÁRIOS
+ * ESTADO E CONFIGURAÇÃO
  */
-
 let usuarioEmEdicaoId = null;
 
+/**
+ * INICIALIZAÇÃO
+ */
 document.addEventListener('DOMContentLoaded', () => {
-    // Verifica se estamos na página de usuários antes de rodar a lógica
-    const tableBody = document.getElementById('user-table-body');
-    if (tableBody) {
-        carregarOpcoes();
-        carregarTabelaUsuarios();
-        
-        const form = document.getElementById('formAddUser');
-        if (form) {
-            form.addEventListener('submit', salvarUsuario);
-        }
-    }
-    
+    // 1. Relógio e Sidebar
     initClock();
     setInterval(initClock, 1000);
+    initSidebarActive();
+
+    // 2. Identificação de Página e Inits Específicos
+    if (document.getElementById('loginForm')) {
+        initLoginForm();
+    }
+
+    if (document.getElementById('perfil-historico-body')) {
+        carregarPerfilUsuario();
+    }
+
+    if (document.getElementById('user-table-body')) {
+        carregarOpcoes();
+        carregarTabelaUsuarios();
+        const formUser = document.getElementById('formAddUser');
+        if (formUser) formUser.addEventListener('submit', salvarUsuario);
+    }
 });
 
-async function carregarOpcoes() {
-    try {
-        const response = await fetch('/api/opcoes');
-        const data = await response.json();
-        const depSelect = document.getElementById('departamento');
-        const cargoSelect = document.getElementById('cargo');
-        
-        if (depSelect) depSelect.innerHTML = data.departamentos.map(d => `<option value="${d}">${d}</option>`).join('');
-        if (cargoSelect) cargoSelect.innerHTML = data.cargos.map(c => `<option value="${c}">${c}</option>`).join('');
-    } catch (e) {
-        console.error("Erro ao carregar opções", e);
-    }
+/**
+ * LÓGICA DE LOGIN (Resolve o problema de recarregamento)
+ */
+function initLoginForm() {
+    const loginForm = document.getElementById('loginForm');
+    
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); // Impede o browser de recarregar
+
+        const feedback = document.getElementById('feedback');
+        const btn = document.getElementById('btnEntrar');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+
+        // UI Feedback
+        if(feedback) feedback.style.display = 'none';
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>A verificar...`;
+
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: usernameInput.value,
+                    password: passwordInput.value
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                window.location.href = result.redirect;
+            } else {
+                if(feedback) {
+                    feedback.innerText = result.message || "Erro ao aceder.";
+                    feedback.style.display = 'block';
+                    feedback.className = "alert alert-danger animate__animated animate__shakeX";
+                }
+                btn.disabled = false;
+                btn.innerHTML = "Aceder ao Sistema";
+            }
+        } catch (err) {
+            console.error(err);
+            if(feedback) {
+                feedback.innerText = "Erro de conexão com o servidor.";
+                feedback.style.display = 'block';
+            }
+            btn.disabled = false;
+            btn.innerHTML = "Aceder ao Sistema";
+        }
+    });
 }
 
+/**
+ * GESTÃO DE UTILIZADORES (ADMIN)
+ */
 async function carregarTabelaUsuarios() {
     const tbody = document.getElementById('user-table-body');
     if (!tbody) return;
 
     try {
         const response = await fetch('/api/usuarios');
-        const usuarios = await response.json();
+        const users = await response.json();
 
-        tbody.innerHTML = usuarios.map(u => {
-            const userJson = JSON.stringify(u).replace(/"/g, '&quot;');
-            return `
-                <tr>
-                    <td class="fw-bold">${u.nome}</td>
-                    <td class="text-muted">${u.email}</td>
-                    <td><span class="badge bg-light text-dark">${u.departamento}</span></td>
-                    <td class="fw-600">${u.matricula}</td>
-                    <td><span class="badge bg-success-subtle text-success">● ${u.status || 'Ativo'}</span></td>
-                    <td class="text-end">
-                        <div class="d-flex justify-content-end gap-2">
-                            <button class="btn btn-sm btn-light border" onclick="prepararEdicao(${userJson})">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-light border text-danger" onclick="excluirUsuario(${u.id})">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+        tbody.innerHTML = users.map(u => `
+            <tr>
+                <td>
+                    <div class="fw-bold">${u.nome}</div>
+                    <div class="small text-muted">${u.email}</div>
+                </td>
+                <td><span class="badge bg-light text-dark border">${u.matricula}</span></td>
+                <td>${u.departamento}</td>
+                <td><span class="badge ${u.nivel_acesso === 'Administrador' ? 'bg-danger' : 'bg-primary'}">${u.nivel_acesso}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-light border" onclick="abrirModalEdicao(${JSON.stringify(u).replace(/"/g, '&quot;')})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
     } catch (e) {
-        console.error("Erro ao carregar tabela", e);
+        console.error("Erro ao carregar utilizadores", e);
     }
 }
 
 async function salvarUsuario(e) {
     e.preventDefault();
-    
-    // Confirmação para edição
-    if (usuarioEmEdicaoId && !confirm("Deseja salvar as alterações feitas neste usuário?")) {
-        return;
-    }
-
     const dados = {
         nome: document.getElementById('nome').value,
         email: document.getElementById('email').value,
@@ -92,81 +131,152 @@ async function salvarUsuario(e) {
     const method = usuarioEmEdicaoId ? 'PUT' : 'POST';
 
     try {
-        const response = await fetch(url, {
+        const res = await fetch(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dados)
         });
 
-        if (response.ok) {
-            const modalEl = document.getElementById('addUserModal');
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-            
+        if (res.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
+            carregarTabelaUsuarios();
             e.target.reset();
-            usuarioEmEdicaoId = null;
-            carregarTabelaUsuarios();
         } else {
-            const err = await response.json();
-            alert("Erro: " + (err.error || "Falha ao salvar"));
+            alert("Erro ao guardar dados.");
         }
     } catch (e) {
-        console.error("Erro na requisição", e);
+        console.error(e);
     }
 }
 
-function prepararEdicao(usuario) {
-    usuarioEmEdicaoId = usuario.id;
-    
-    document.getElementById('nome').value = usuario.nome;
-    document.getElementById('email').value = usuario.email;
-    document.getElementById('departamento').value = usuario.departamento;
-    document.getElementById('cargo').value = usuario.cargo;
-    document.getElementById('matricula').value = usuario.matricula;
-    document.getElementById('nivel_acesso').value = usuario.nivel_acesso;
-    
-    // Na edição a senha não deve ser obrigatória
-    const senhaInput = document.getElementById('senha');
-    senhaInput.value = '';
-    senhaInput.removeAttribute('required');
-    senhaInput.placeholder = "Deixe em branco para manter a atual";
-    
-    const modalEl = document.getElementById('addUserModal');
-    const modal = new bootstrap.Modal(modalEl);
-    modal.show();
-
-    // Resetar quando fechar o modal
-    modalEl.addEventListener('hidden.bs.modal', () => {
-        usuarioEmEdicaoId = null;
-        document.getElementById('formAddUser').reset();
-        senhaInput.setAttribute('required', 'required');
-        senhaInput.placeholder = "********";
-    }, { once: true });
-}
-
-async function excluirUsuario(id) {
-    // Campo de confirmação para excluir
-    if (!confirm("Tem certeza que deseja EXCLUIR permanentemente este usuário? Esta ação não pode ser desfeita.")) {
-        return;
-    }
-
+/**
+ * PERFIL DO UTILIZADOR
+ */
+async function carregarPerfilUsuario() {
     try {
-        const response = await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-            carregarTabelaUsuarios();
-        } else {
-            alert("Erro ao excluir usuário.");
+        const res = await fetch('/api/perfil');
+        if (!res.ok) return;
+        const user = await res.json();
+
+        // Mapeamento de IDs que podem existir tanto no Dashboard quanto no Perfil
+        const campos = {
+            'user-nome-card': user.nome,
+            'user-nome-dash': user.nome,
+            'user-email': user.email,
+            'user-matricula': user.matricula,
+            'user-departamento': user.departamento,
+            'user-cargo-card': user.cargo,
+            'user-cargo-dash': user.cargo
+        };
+
+        for (let id in campos) {
+            const el = document.getElementById(id);
+            if (el && campos[id]) el.innerText = campos[id];
         }
-    } catch (e) {
-        console.error("Erro ao excluir", e);
-    }
+    } catch (e) { console.error(e); }
 }
 
+// Chame essa função no DOMContentLoaded para que funcione em todas as páginas
+document.addEventListener('DOMContentLoaded', () => {
+    // ... outros inits
+    carregarPerfilUsuario(); 
+});
+/**
+ * UTILITÁRIOS
+ */
 function initClock() {
     const clock = document.getElementById('realtime-clock');
     const date = document.getElementById('realtime-date');
     if (!clock || !date) return;
     const now = new Date();
-    clock.innerText = now.toLocaleTimeString('pt-BR');
-    date.innerText = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    clock.innerText = now.toLocaleTimeString('pt-PT');
+    date.innerText = now.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function initSidebarActive() {
+    const links = document.querySelectorAll('.sidebar .nav-link');
+    const path = window.location.pathname;
+    links.forEach(link => {
+        if (link.getAttribute('href') === path) link.classList.add('active');
+    });
+}
+
+async function carregarOpcoes() {
+    const depSelect = document.getElementById('departamento');
+    const cargoSelect = document.getElementById('cargo');
+    if(!depSelect) return;
+    
+    try {
+        const res = await fetch('/api/opcoes');
+        const data = await res.json();
+        depSelect.innerHTML = data.departamentos.map(d => `<option value="${d}">${d}</option>`).join('');
+        cargoSelect.innerHTML = data.cargos.map(c => `<option value="${c}">${c}</option>`).join('');
+    } catch (e) { console.error(e); }
+}
+
+async function toggleWork() {
+    const btn = document.getElementById('btn-registrar');
+    const btnText = document.getElementById('btn-text');
+    const isEntrada = !btn.classList.contains('saida');
+    const tipo = isEntrada ? 'Entrada' : 'Saída';
+
+    try {
+        const res = await fetch('/api/ponto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo })
+        });
+
+        if (!res.ok) throw new Error();
+
+        if (isEntrada) {
+            btn.classList.add('saida');
+            btnText.innerHTML = "REGISTRAR<br>SAÍDA";
+            showToast("Entrada registrada com sucesso!");
+        } else {
+            btn.classList.remove('saida');
+            btnText.innerHTML = "REGISTRAR<br>ENTRADA";
+            showToast("Saída registrada com sucesso!");
+        }
+
+        carregarUltimosRegistros();
+    } catch {
+        showToast("Erro ao registrar ponto.");
+    }
+}
+
+
+function showToast(message) {
+    const toastEl = document.getElementById('liveToast');
+    const toastMsg = document.getElementById('toast-message');
+    if (toastEl && toastMsg) {
+        toastMsg.innerText = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+}
+
+
+async function carregarUltimosRegistros() {
+    const tbody = document.getElementById('log-table-body');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch('/api/ponto');
+        const dados = await res.json();
+
+        tbody.innerHTML = dados.map(r => `
+            <tr>
+                <td>${r.tipo}</td>
+                <td>${new Date(r.horario).toLocaleTimeString()}</td>
+                <td>
+                    <span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}">
+                        OK
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        console.error(e);
+    }
 }

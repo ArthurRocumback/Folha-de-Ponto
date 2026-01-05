@@ -27,7 +27,6 @@
         .main-content { 
             margin-left: var(--sidebar-width); 
             padding: 40px; 
-            min-height: 100vh;
         }
 
         .stat-card { 
@@ -35,140 +34,91 @@
             border-radius: 16px; 
             border: none; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.04); 
-            height: 100%;
         }
 
-        .fw-800 { font-weight: 800; }
+        .profile-img { 
+            width: 100px; 
+            height: 100px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            border: 4px solid #fff; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
         .fw-600 { font-weight: 600; }
-        
-        .info-label { 
-            font-size: 0.75rem; 
-            font-weight: 700; 
-            color: #888;
-            margin-bottom: 2px; 
-            display: block; 
-        }
-
-        /* Ajuste para e-mails longos não quebrarem o layout */
-        .text-truncate-custom {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: block;
-        }
-
-        @media (max-width: 992px) {
-            .main-content {
-                margin-left: 0;
-                padding: 20px;
-            }
-        }
+        .fw-800 { font-weight: 800; }
     </style>
 </head>
 <body>
 
-<aside class="sidebar">
-    <div class="px-4 mb-4">
-        <h3 class="fw-800 text-white m-0">CANON</h3>
-        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">
-            Ponto Digital
-        </small>
-    </div>
-
-    <nav class="nav flex-column nav-flex-container">
-        <a href="/dashboard" class="nav-link">
-            <i class="bi bi-grid-1x2-fill"></i> Dashboard
-        </a>
-
-        <a href="/perfil" class="nav-link">
-            <i class="bi bi-person-badge"></i> Perfil
-        </a>
-
-        <a href="/relatorios" class="nav-link">
-            <i class="bi bi-file-earmark-text"></i> Relatórios
-        </a>
-
-        <a href="/usuarios" class="nav-link">
-            <i class="bi bi-people"></i> Usuários
-        </a>
-
-        <a href="/login" class="nav-link logout-link">
-            <i class="bi bi-box-arrow-left"></i> Sair
-        </a>
-    </nav>
-</aside>
+{% include 'partials/sidebar.html' %}
 
 <main class="main-content">
-    <header class="mb-5">
-        <h1 class="fw-800 h2 mb-1">Meu Perfil</h1>
-        <p class="text-muted">Informações básicas e histórico de registos</p>
+    <header class="mb-5 d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="fw-800 mb-0">Meu Perfil</h1>
+            <p class="text-muted">Gerencie suas informações e visualize seu histórico</p>
+        </div>
+        <div class="text-end">
+            <h5 id="realtime-clock" class="fw-bold mb-0">00:00:00</h5>
+            <small id="realtime-date" class="text-muted"></small>
+        </div>
     </header>
 
     <div class="row g-4">
-        <!-- Card de Informações -->
-        <div class="col-lg-4 col-md-12">
-            <div class="stat-card p-4">
-                <h5 class="fw-800 mb-4 text-uppercase small text-muted border-bottom pb-2">Dados do Estagiário</h5>
+        <!-- Card de Perfil -->
+        <div class="col-lg-4">
+            <div class="stat-card p-4 text-center">
+                <img src="https://ui-avatars.com/api/?name=User&background=D40015&color=fff" id="profile-avatar" class="profile-img mb-3" alt="Avatar">
+                <h4 class="fw-800 mb-1" id="user-nome-card">Carregando...</h4>
+                <p class="text-danger fw-600 small mb-4" id="user-cargo-card">Estagiário</p>
                 
-                <div class="mb-3">
-                    <span class="info-label">Nome Completo</span>
-                    <p class="fw-600 m-0">Nome do Estagiário</p>
-                </div>
-
-                <div class="mb-3">
-                    <span class="info-label">E-mail Corporativo</span>
-                    <p class="fw-600 m-0 text-truncate-custom">estagiario@canon.com.br</p>
-                </div>
-
-                <div class="mb-3">
-                    <span class="info-label">Departamento</span>
-                    <p class="fw-600 m-0">Tecnologia da Informação</p>
-                </div>
-
-                <div class="mb-0">
-                    <span class="info-label">Unidade</span>
-                    <p class="fw-600 m-0">São Paulo - Matriz</p>
+                <hr class="my-4 opacity-50">
+                
+                <div class="text-start">
+                    <div class="mb-3">
+                        <label class="small text-muted text-uppercase fw-bold">E-mail Corporativo</label>
+                        <p class="mb-0 fw-600" id="user-email">---</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small text-muted text-uppercase fw-bold">Matrícula</label>
+                        <p class="mb-0 fw-600" id="user-matricula">---</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small text-muted text-uppercase fw-bold">Departamento</label>
+                        <p class="mb-0 fw-600" id="user-departamento">---</p>
+                    </div>
+                    <div class="mb-0">
+                        <label class="small text-muted text-uppercase fw-bold">Unidade</label>
+                        <p class="mb-0 fw-600" id="user-unidade">São Paulo - Matriz</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Card de Histórico-->
-        <!--Depois ajustar para pegar as informaçoes do DB -->
-        <div class="col-lg-8 col-md-12">
+        <!-- Histórico Filtrado -->
+        <div class="col-lg-8">
             <div class="stat-card p-4">
-                <h5 class="fw-800 mb-4 text-uppercase small text-muted border-bottom pb-2">Histórico Mensal de Pontos</h5>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-800 m-0">Histórico de Registros</h5>
+                    <span class="badge bg-light text-dark border">Este Mês</span>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead class="small text-muted text-uppercase">
                             <tr>
                                 <th>Data</th>
-                                <th>Entrada</th>
-                                <th>Saída</th>
-                                <th>Total</th>
+                                <th>Evento</th>
+                                <th>Horário</th>
+                                <th>Localização</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="perfil-historico-body">
+                            <!-- Injetado via JS -->
                             <tr>
-                                <td class="fw-600">31/12/2025</td>
-                                <td>10:00</td>
-                                <td>17:00</td>
-                                <td class="fw-bold text-primary">06:00h</td>
-                                <td><span class="badge bg-light text-success fw-bold">● Ok</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-600">30/12/2025</td>
-                                <td>10:05</td>
-                                <td>17:15</td>
-                                <td class="fw-bold text-danger">06:10h</td>
-                                <td><span class="badge bg-light text-success fw-bold">● Ok</span></td>
-                            </tr>
-                            <tr>
-                                <td class="fw-600">29/12/2025</td>
-                                <td>10:15</td>
-                                <td>16:45</td>
-                                <td class="fw-bold text-primary">05:30h</td>
-                                <td><span class="badge bg-light text-warning fw-bold">● Incompleto</span></td>
+                                <td colspan="5" class="text-center py-4 text-muted">Carregando histórico...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -177,6 +127,8 @@
         </div>
     </div>
 </main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

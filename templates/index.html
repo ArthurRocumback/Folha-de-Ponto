@@ -76,42 +76,13 @@
 </head>
 <body>
 
-<aside class="sidebar">
-    <div class="px-4 mb-4">
-        <h3 class="fw-800 text-white m-0">CANON</h3>
-        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">
-            Ponto Digital
-        </small>
-    </div>
-
-    <nav class="nav flex-column nav-flex-container">
-        <a href="/dashboard" class="nav-link">
-            <i class="bi bi-grid-1x2-fill"></i> Dashboard
-        </a>
-
-        <a href="/perfil" class="nav-link">
-            <i class="bi bi-person-badge"></i> Perfil
-        </a>
-
-        <a href="/relatorios" class="nav-link">
-            <i class="bi bi-file-earmark-text"></i> Relatórios
-        </a>
-
-        <a href="/usuarios" class="nav-link">
-            <i class="bi bi-people"></i> Usuários
-        </a>
-
-        <a href="/login" class="nav-link logout-link">
-            <i class="bi bi-box-arrow-left"></i> Sair
-        </a>
-    </nav>
-</aside>
+{% include 'partials/sidebar.html' %}
 
 <main class="main-content">
     <header class="d-flex justify-content-between align-items-start mb-5">
         <div>
             <h1 class="fw-800 h2 mb-1">Painel do Colaborador</h1>
-            <p class="text-muted">Bem-vindo, <strong>User</strong> • Cargo</p>
+            <p class="text-muted">Bem-vindo, <strong id="user-nome-dash">Carregando...</strong> • <span id="user-cargo-dash">---</span></p>
         </div>
         <div class="d-flex gap-2">
             <span class="badge bg-white text-dark border p-2 px-3 rounded-pill shadow-sm">

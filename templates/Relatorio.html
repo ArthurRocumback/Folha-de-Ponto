@@ -108,36 +108,7 @@
 </head>
 <body>
 
-<aside class="sidebar">
-    <div class="px-4 mb-4">
-        <h3 class="fw-800 text-white m-0">CANON</h3>
-        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">
-            Ponto Digital
-        </small>
-    </div>
-
-    <nav class="nav flex-column nav-flex-container">
-        <a href="/dashboard" class="nav-link">
-            <i class="bi bi-grid-1x2-fill"></i> Dashboard
-        </a>
-
-        <a href="/perfil" class="nav-link">
-            <i class="bi bi-person-badge"></i> Perfil
-        </a>
-
-        <a href="/relatorios" class="nav-link">
-            <i class="bi bi-file-earmark-text"></i> Relatórios
-        </a>
-
-        <a href="/usuarios" class="nav-link">
-            <i class="bi bi-people"></i> Usuários
-        </a>
-
-        <a href="/login" class="nav-link logout-link">
-            <i class="bi bi-box-arrow-left"></i> Sair
-        </a>
-    </nav>
-</aside>
+{% include 'partials/sidebar.html' %}
 
 <main class="main-content">
     <div class="d-flex justify-content-between align-items-center mb-5">
