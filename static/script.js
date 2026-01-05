@@ -321,3 +321,7 @@ function initSidebarActive() {
         }
     });
 }
+
+function teste() {
+    console.log("teste");
+}
