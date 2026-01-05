@@ -32,7 +32,7 @@ def relatorios():
 def usuarios():
     return render_template('Usuarios.html')
 
-# ===== APIs (mantidas) =====
+# ===== APIs DE USUÁRIOS =====
 
 @app.route('/api/opcoes', methods=['GET'])
 def get_opcoes():
@@ -56,24 +56,65 @@ def listar_usuarios():
 def add_usuario():
     dados = request.json
     conn = get_db_connection()
-    conn.execute(
-        '''
-        INSERT INTO usuarios (nome, email, departamento, cargo, nivel_acesso, senha, matricula)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''',
-        (
-            dados['nome'],
-            dados['email'],
-            dados['departamento'],
-            dados['cargo'],
-            dados['nivel_acesso'],
-            dados['senha'],
-            dados['matricula']
+    try:
+        conn.execute(
+            '''
+            INSERT INTO usuarios (nome, email, departamento, cargo, nivel_acesso, senha, matricula)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (dados['nome'], dados['email'], dados['departamento'], dados['cargo'], dados['nivel_acesso'], dados['senha'], dados['matricula'])
         )
-    )
-    conn.commit()
-    conn.close()
-    return jsonify({"mensagem": "Sucesso"}), 201
+        conn.commit()
+        return jsonify({"message": "Usuário criado com sucesso"}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "E-mail ou Matrícula já cadastrados"}), 400
+    finally:
+        conn.close()
+
+# ROTA DE EDIÇÃO (FALTAVA ESTA)
+@app.route('/api/usuarios/<int:id>', methods=['PUT'])
+def editar_usuario(id):
+    dados = request.json
+    conn = get_db_connection()
+    try:
+        # Se a senha vier vazia, não atualizamos ela para não sobrescrever com vazio
+        if dados.get('senha'):
+            conn.execute(
+                '''
+                UPDATE usuarios 
+                SET nome=?, email=?, departamento=?, cargo=?, nivel_acesso=?, senha=?, matricula=?
+                WHERE id=?
+                ''',
+                (dados['nome'], dados['email'], dados['departamento'], dados['cargo'], dados['nivel_acesso'], dados['senha'], dados['matricula'], id)
+            )
+        else:
+            conn.execute(
+                '''
+                UPDATE usuarios 
+                SET nome=?, email=?, departamento=?, cargo=?, nivel_acesso=?, matricula=?
+                WHERE id=?
+                ''',
+                (dados['nome'], dados['email'], dados['departamento'], dados['cargo'], dados['nivel_acesso'], dados['matricula'], id)
+            )
+        conn.commit()
+        return jsonify({"message": "Usuário atualizado com sucesso"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+# ROTA DE EXCLUSÃO (FALTAVA ESTA)
+@app.route('/api/usuarios/<int:id>', methods=['DELETE'])
+def excluir_usuario(id):
+    conn = get_db_connection()
+    try:
+        conn.execute('DELETE FROM usuarios WHERE id = ?', (id,))
+        conn.commit()
+        return jsonify({"message": "Usuário excluído com sucesso"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True)

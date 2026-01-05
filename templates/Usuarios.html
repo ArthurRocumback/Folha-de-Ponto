@@ -10,16 +10,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
     
     <style>
-        :root {
-            --brand-red: #D40015;
-            --brand-dark: #1a1a1a;
-            --bg-light: #f4f7f6;
-        }
+        :root { --brand-red: #D40015; --bg-light: #f4f7f6; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg-light); color: #333; }
         .main-content { margin-left: 260px; padding: 40px; }
-        .stat-card { background: #fff; border-radius: 20px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .btn-add-user { background-color: var(--brand-red); color: white; border-radius: 12px; font-weight: 600; transition: 0.3s; border: none; padding: 10px 20px; }
-        .btn-add-user:hover { background-color: #b00011; color: white; transform: translateY(-2px); }
+        .stat-card { background: #fff; border-radius: 20px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+        .btn-add-user { background: var(--brand-red); color: #fff; border-radius: 12px; font-weight: 600; padding: 10px 20px; border: none; transition: 0.3s; }
+        .btn-add-user:hover { background: #b00011; color: #fff; }
     </style>
 </head>
 <body>
@@ -33,115 +29,90 @@
     </div>
 
     <nav class="nav flex-column nav-flex-container">
-        <a href="/dashboard" class="nav-link">
-            <i class="bi bi-grid-1x2-fill"></i> Dashboard
-        </a>
-
-        <a href="/perfil" class="nav-link">
-            <i class="bi bi-person-badge"></i> Perfil
-        </a>
-
-        <a href="/relatorios" class="nav-link">
-            <i class="bi bi-file-earmark-text"></i> Relatórios
-        </a>
-
-        <a href="/usuarios" class="nav-link">
-            <i class="bi bi-people"></i> Usuários
-        </a>
-
-        <a href="/login" class="nav-link logout-link">
-            <i class="bi bi-box-arrow-left"></i> Sair
-        </a>
+        <a href="/dashboard" class="nav-link"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+        <a href="/perfil" class="nav-link"><i class="bi bi-person-badge"></i> Perfil</a>
+        <a href="/relatorios" class="nav-link"><i class="bi bi-file-earmark-text"></i> Relatórios</a>
+        <a href="/usuarios" class="nav-link active"><i class="bi bi-people"></i> Usuários</a>
+        <a href="/login" class="nav-link logout-link"><i class="bi bi-box-arrow-left"></i> Sair</a>
     </nav>
 </aside>
 
 <main class="main-content">
     <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <h2 class="fw-800 m-0">Gestão de Usuários</h2>
-            <p class="text-muted">Administre os colaboradores e seus acessos</p>
+            <h1 class="fw-800 h2 mb-1">Gestão de Usuários</h1>
+            <p class="text-muted">Administre os colaboradores e níveis de acesso</p>
         </div>
-        <button class="btn btn-add-user" data-bs-toggle="modal" data-bs-target="#modalUsuario">
-            <i class="bi bi-plus-lg me-2"></i>Novo Usuário
+        <button class="btn btn-add-user" data-bs-toggle="modal" data-bs-target="#addUserModal">
+            <i class="bi bi-person-plus me-2"></i>Novo Usuário
         </button>
     </div>
 
     <div class="stat-card p-4">
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table align-middle">
                 <thead class="text-muted small text-uppercase">
                     <tr>
-                        <th>Colaborador</th>
-                        <th>Departamento</th>
-                        <th>Cargo</th>
-                        <th>Nível</th>
-                        <th>Status</th>
-                        <th>Ações</th>
+                        <th class="border-0">Nome</th>
+                        <th class="border-0">E-mail</th>
+                        <th class="border-0">Departamento</th>
+                        <th class="border-0">Matrícula</th>
+                        <th class="border-0">Status</th>
+                        <th class="border-0 text-end">Ações</th>
                     </tr>
                 </thead>
-                <tbody id="tabela-usuarios">
-                    </tbody>
+                <tbody id="user-table-body">
+                    <!-- Injetado via fetch no script.js -->
+                </tbody>
             </table>
         </div>
     </div>
 </main>
 
-<div class="modal fade" id="modalUsuario" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 25px;">
-            <div class="modal-header border-0 px-4 pt-4">
-                <h5 class="fw-800 m-0">Cadastrar Novo Usuário</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- Modal de Cadastro -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0" style="border-radius: 20px;">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="fw-800 mb-0">Novo Colaborador</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            
-            <div class="modal-body px-4">
+            <div class="modal-body p-4">
                 <form id="formAddUser" class="row g-3">
-                    <div class="col-md-12">
+                    <div class="col-md-6">
                         <label class="small fw-bold text-muted text-uppercase mb-1">Nome Completo</label>
-                        <input type="text" id="nome" class="form-control border-0 bg-light py-2" placeholder="Ex: Arthur Rocumback" required>
+                        <input type="text" id="nome" class="form-control border-0 bg-light py-2" required>
                     </div>
-
                     <div class="col-md-6">
-                        <label class="small fw-bold text-muted text-uppercase mb-1">E-mail Corporativo</label>
-                        <input type="email" id="email" class="form-control border-0 bg-light py-2" placeholder="arocumback@cusa.canon.com" required>
+                        <label class="small fw-bold text-muted text-uppercase mb-1">E-mail</label>
+                        <input type="email" id="email" class="form-control border-0 bg-light py-2" required>
                     </div>
-
-                    <div class="col-md-6">
-                        <label class="small fw-bold text-muted text-uppercase mb-1">Matrícula</label>
-                        <input type="text" id="matricula" class="form-control border-0 bg-light py-2" placeholder="B00000" required>
-                    </div>
-
                     <div class="col-md-6">
                         <label class="small fw-bold text-muted text-uppercase mb-1">Departamento</label>
-                        <select id="departamento" class="form-select border-0 bg-light py-2" required>
-                            <option value="">Carregando...</option>
-                        </select>
+                        <select id="departamento" class="form-select border-0 bg-light py-2" required></select>
                     </div>
-
                     <div class="col-md-6">
                         <label class="small fw-bold text-muted text-uppercase mb-1">Cargo</label>
-                        <select id="cargo" class="form-select border-0 bg-light py-2" required>
-                            <option value="">Carregando...</option>
-                        </select>
+                        <select id="cargo" class="form-select border-0 bg-light py-2" required></select>
                     </div>
-
+                    <div class="col-md-6">
+                        <label class="small fw-bold text-muted text-uppercase mb-1">Matrícula</label>
+                        <input type="text" id="matricula" class="form-control border-0 bg-light py-2" required>
+                    </div>
                     <div class="col-md-6">
                         <label class="small fw-bold text-muted text-uppercase mb-1">Nível de Acesso</label>
                         <select id="nivel_acesso" class="form-select border-0 bg-light py-2">
-                            <option value="Usuário">Usuário Comum</option>
-                            <option value="Gestor">Gestor</option>
+                            <option value="Usuário">Usuário</option>
                             <option value="Administrador">Administrador</option>
                         </select>
                     </div>
-
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <label class="small fw-bold text-muted text-uppercase mb-1">Senha Provisória</label>
-                        <input type="password" id="senha" class="form-control border-0 bg-light py-2" placeholder="********" required>
+                        <input type="password" id="senha" class="form-control border-0 bg-light py-2" required>
                     </div>
-
-                    <div class="col-12 mt-4 text-end">
+                    <div class="col-12 text-end mt-4">
                         <button type="button" class="btn btn-light fw-bold px-4 me-2" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-add-user px-4">Salvar Usuário</button>
+                        <button type="submit" class="btn btn-add-user">Salvar Usuário</button>
                     </div>
                 </form>
             </div>
@@ -151,6 +122,5 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
-
 </body>
 </html>
