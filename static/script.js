@@ -101,30 +101,35 @@ async function carregarTabelaUsuarios() {
         tbody.innerHTML = users.map(u => `
             <tr>
                 <td class="fw-bold">${u.nome}</td>
+
                 <td>${u.email}</td>
+
                 <td>${u.departamento || '-'}</td>
+
                 <td>${u.matricula}</td>
+
                 <td>
-                    <span class="badge ${u.status === 'Ativo' ? 'bg-success' : 'bg-secondary'}">
+                    <span class="badge ${
+                        u.status === 'Ativo' ? 'bg-success' :
+                        u.status === 'Férias' ? 'bg-warning text-dark' :
+                        u.status === 'Atestado' ? 'bg-info text-dark' :
+                        u.status === 'Licença' ? 'bg-primary' :
+                        'bg-secondary'
+                    }">
                         ${u.status || 'Ativo'}
                     </span>
                 </td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-2"
-                        onclick="editarUsuario(${u.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
 
-                    <button class="btn btn-sm btn-outline-danger"
-                        onclick="confirmarExclusao(${u.id}, '${u.nome}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="editarUsuario(${u.id})" title="Editar usuário"> <i class="bi bi-pencil"></i> </button>
+
+                    <button class="btn btn-sm btn-outline-danger" onclick="confirmarExclusao(${u.id}, '${u.nome}')" title="Excluir usuário"> <i class="bi bi-trash"></i></button>
                 </td>
             </tr>
         `).join('');
 
     } catch (e) {
-        console.error("Erro ao carregar utilizadores", e);
+        console.error('Erro ao carregar usuários:', e);
     }
 }
 
@@ -174,7 +179,10 @@ async function confirmarExclusao(id, nome) {
 }
 
 async function salvarUsuario(e) {
+    dados.status = document.getElementById('status').value;
+
     e.preventDefault();
+
     const senhaValor = document.getElementById('senha').value;
     const dados = {
         nome: document.getElementById('nome').value,

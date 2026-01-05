@@ -195,8 +195,7 @@ def atualizar_usuario(user_id):
 
     sql = '''
         UPDATE usuarios
-        SET nome = ?, email = ?, departamento = ?, cargo = ?, 
-            nivel_acesso = ?, matricula = ?
+        SET nome = ?, email = ?, departamento = ?, cargo = ?, nivel_acesso = ?, matricula = ?, status = ?
     '''
 
     if 'senha' in dados:
@@ -252,8 +251,8 @@ def add_usuario():
     conn = get_db_connection()
     try:
         conn.execute(
-            '''INSERT INTO usuarios (nome, email, departamento, cargo, nivel_acesso, senha, matricula)
-               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            '''INSERT INTO usuarios (nome, email, departamento, cargo, nivel_acesso, senha, matricula, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
             (dados['nome'], dados['email'], dados['departamento'], dados['cargo'], 
              dados['nivel_acesso'], dados['senha'], dados['matricula'])
         )
