@@ -47,6 +47,25 @@
 
         .fw-600 { font-weight: 600; }
         .fw-800 { font-weight: 800; }
+
+        .historico-scroll {
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .historico-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .historico-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        .historico-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
     </style>
 </head>
 <body>
@@ -104,8 +123,8 @@
                     <span class="badge bg-light text-dark border">Este Mês</span>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                <div class="table-responsive historico-scroll">
+                    <table class="table table-hover align-middle mb-0">
                         <thead class="small text-muted text-uppercase">
                             <tr>
                                 <th>Data</th>

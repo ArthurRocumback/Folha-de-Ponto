@@ -11,7 +11,8 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = 'canon_ponto_digital_secret_key' 
 app.permanent_session_lifetime = timedelta(hours=24)
 
-DATABASE = 'db_teste.sqlite'
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DATABASE = os.path.join(BASE_DIR, 'db_teste.sqlite')
 
 def get_db_connection():
     """ Estabelece conexão com o banco de dados SQLite """
@@ -25,7 +26,8 @@ def get_db_connection():
 @app.before_request
 def check_session():
     """ Verifica se o utilizador está logado antes de aceder a rotas protegidas """
-    allowed_routes = ['login', 'api_login', 'static']
+    allowed_routes = ['login','api_login','static','registrar_ponto','listar_pontos']
+
     if request.endpoint not in allowed_routes and 'user_id' not in session:
         return redirect(url_for('login'))
 
@@ -141,6 +143,75 @@ def listar_pontos():
 
     return jsonify([dict(r) for r in registros])
 
+@app.route('/api/ponto/historico', methods=['GET'])
+def listar_historico_ponto():
+    if 'user_id' not in session:
+        return jsonify({"error": "Não autorizado"}), 401
+
+    conn = get_db_connection()
+    registros = conn.execute(
+        '''
+        SELECT 
+            DATE(horario) as data,
+            tipo,
+            TIME(horario) as horario,
+            localizacao
+        FROM registros_ponto
+        WHERE usuario_id = ?
+        ORDER BY horario DESC
+        ''',
+        (session['user_id'],)
+    ).fetchall()
+    conn.close()
+
+    return jsonify([dict(r) for r in registros])
+
+@app.route('/api/usuarios/<int:user_id>', methods=['DELETE'])
+def excluir_usuario(user_id):
+    if session.get('user_nivel') != 'Administrador':
+        return jsonify({"error": "Acesso negado"}), 403
+
+    conn = get_db_connection()
+    conn.execute('DELETE FROM usuarios WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True})
+
+@app.route('/api/usuarios/<int:user_id>', methods=['PUT'])
+def atualizar_usuario(user_id):
+    if session.get('user_nivel') != 'Administrador':
+        return jsonify({"error": "Acesso negado"}), 403
+
+    dados = request.json
+    campos = [
+        dados['nome'],
+        dados['email'],
+        dados['departamento'],
+        dados['cargo'],
+        dados['nivel_acesso'],
+        dados['matricula']
+    ]
+
+    sql = '''
+        UPDATE usuarios
+        SET nome = ?, email = ?, departamento = ?, cargo = ?, 
+            nivel_acesso = ?, matricula = ?
+    '''
+
+    if 'senha' in dados:
+        sql += ', senha = ?'
+        campos.append(dados['senha'])
+
+    sql += ' WHERE id = ?'
+    campos.append(user_id)
+
+    conn = get_db_connection()
+    conn.execute(sql, campos)
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True})
 
 # ==========================================
 # APIs DE DADOS
