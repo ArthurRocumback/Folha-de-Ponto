@@ -24,14 +24,20 @@
 
         .main-content { margin-left: var(--sidebar-width); padding: 40px; transition: all 0.3s; }
 
-        .stat-card { 
-            background: #fff; 
-            border-radius: 16px; 
-            border: none; 
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04); 
-            transition: all 0.3s ease;
+        .stat-card {
+            background: #ffffff;
+            border-radius: 15px;
+            border: 1px solid rgba(0,0,0,0.05);
+            min-height: 450px;
+            height: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
-        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 15px 35px rgba(212, 0, 21, 0.08); }
+
+        .stat-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 15px 35px rgba(212, 0, 21, 0.08); 
+        }
 
         .clock-display { font-size: 4rem; font-weight: 800; color: #1a1a1a; letter-spacing: -3px; line-height: 1; }
         .date-display { color: var(--brand-color); font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px;}
@@ -61,6 +67,20 @@
 
         .btn-ponto:hover { transform: scale(1.05); background-color: var(--brand-hover); }
         .btn-ponto.saida { background: #222; border-color: #333; box-shadow: 0 15px 40px rgba(0,0,0,0.2); }
+
+        .table-responsive {
+            overflow-y: auto;
+            flex-grow: 1;
+            background: #ffffff; 
+        }
+
+        /* Deixar o cabeçalho fixo ao rolar */
+        .table-responsive thead {
+            position: sticky;
+            top: 0;
+            background: #fff;
+            z-index: 1;
+        }
 
         @keyframes pulse {
             0% { transform: scale(1); opacity: 0.4; }
@@ -107,30 +127,12 @@
         </div>
 
         <div class="col-xl-7 col-lg-6">
-            <div class="row g-3 mb-4">
-                <div class="col-md-6">
-                    <div class="stat-card p-4">
-                        <small class="text-muted fw-bold text-uppercase mb-2 d-block">Hoje</small>
-                        <h3 class="fw-800 mb-0" id="hours-today">00h 00m</h3>
-                        <div class="progress mt-2" style="height: 4px;">
-                            <div class="progress-bar bg-primary" style="width: 45%"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="stat-card p-4">
-                        <small class="text-muted fw-bold text-uppercase mb-2 d-block">Horas</small>
-                        <h3 class="fw-800 mb-0 text-success">+ 2h 30m</h3>
-                        <small class="text-success fw-bold" style="font-size: 0.7rem;">DENTRO DA META</small>
-                    </div>
-                </div>
-            </div>
-
-            <div class="stat-card p-4">
+            <div class="stat-card p-4 h-100 d-flex flex-column"> 
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="fw-800 m-0">Últimos Registros</h5>
                 </div>
-                <div class="table-responsive">
+                
+                <div class="table-responsive flex-grow-1">
                     <table class="table table-borderless align-middle">
                         <thead class="text-muted small text-uppercase">
                             <tr>

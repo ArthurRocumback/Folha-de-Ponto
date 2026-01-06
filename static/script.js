@@ -31,6 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('log-table-body')) {
         carregarUltimosRegistros();
     }
+    if (document.getElementById('audit-table-body')) {
+    carregarAuditoria();
+}
+
 });
 
 /**
@@ -179,11 +183,16 @@ async function confirmarExclusao(id, nome) {
 }
 
 async function salvarUsuario(e) {
-    dados.status = document.getElementById('status').value;
-
     e.preventDefault();
 
     const senhaValor = document.getElementById('senha').value;
+
+    // ✅ VALIDAÇÃO: senha obrigatória apenas na criação
+    if (!usuarioEmEdicaoId && !senhaValor) {
+        alert('Senha é obrigatória para novos usuários');
+        return;
+    }
+
     const dados = {
         nome: document.getElementById('nome').value,
         email: document.getElementById('email').value,
@@ -191,31 +200,42 @@ async function salvarUsuario(e) {
         cargo: document.getElementById('cargo').value,
         matricula: document.getElementById('matricula').value,
         nivel_acesso: document.getElementById('nivel_acesso').value,
+        status: document.getElementById('status').value
     };
-    
-    if (senhaValor) {
-    dados.senha = senhaValor;
-}
 
-    const url = usuarioEmEdicaoId ? `/api/usuarios/${usuarioEmEdicaoId}` : '/api/usuarios';
+    // Só envia senha se foi preenchida
+    if (senhaValor) {
+        dados.senha = senhaValor;
+    }
+
+    const url = usuarioEmEdicaoId
+        ? `/api/usuarios/${usuarioEmEdicaoId}`
+        : '/api/usuarios';
+
     const method = usuarioEmEdicaoId ? 'PUT' : 'POST';
 
     try {
         const res = await fetch(url, {
-            method: method,
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dados)
         });
 
-        if (res.ok) {
-            bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
-            carregarTabelaUsuarios();
-            e.target.reset();
-        } else {
-            alert("Erro ao guardar dados.");
+        if (!res.ok) {
+            throw new Error('Erro ao salvar usuário');
         }
-    } catch (e) {
-        console.error(e);
+
+        bootstrap.Modal
+            .getInstance(document.getElementById('addUserModal'))
+            .hide();
+
+        usuarioEmEdicaoId = null;
+        e.target.reset();
+        carregarTabelaUsuarios();
+
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao salvar usuário');
     }
 }
 
@@ -287,6 +307,15 @@ async function carregarOpcoes() {
 async function toggleWork() {
     const btn = document.getElementById('btn-registrar');
     const btnText = document.getElementById('btn-text');
+    
+    // Se o botão já estiver desabilitado, ignora o clique
+    if (btn.classList.contains('processing')) return;
+
+    // Bloqueia o botão imediatamente
+    btn.classList.add('processing');
+    btn.style.opacity = "0.5";
+    btn.style.pointerEvents = "none";
+    
     const isEntrada = !btn.classList.contains('saida');
     const tipo = isEntrada ? 'Entrada' : 'Saída';
 
@@ -297,21 +326,31 @@ async function toggleWork() {
             body: JSON.stringify({ tipo })
         });
 
-        if (!res.ok) throw new Error();
+        const data = await res.json();
 
-        if (isEntrada) {
-            btn.classList.add('saida');
-            btnText.innerHTML = "REGISTRAR<br>SAÍDA";
-            showToast("Entrada registrada com sucesso!");
+        if (res.ok) {
+            // Lógica de sucesso (troca de estado do botão)
+            if (isEntrada) {
+                btn.classList.add('saida');
+                btnText.innerHTML = "REGISTRAR<br>SAÍDA";
+            } else {
+                btn.classList.remove('saida');
+                btnText.innerHTML = "REGISTRAR<br>ENTRADA";
+            }
+            showToast(`${tipo} registrada com sucesso!`);
+            await carregarUltimosRegistros();
         } else {
-            btn.classList.remove('saida');
-            btnText.innerHTML = "REGISTRAR<br>ENTRADA";
-            showToast("Saída registrada com sucesso!");
+            showToast(data.message || "Erro ao registrar.");
         }
-
-        carregarUltimosRegistros();
-    } catch {
-        showToast("Erro ao registrar ponto.");
+    } catch (e) {
+        showToast("Erro de conexão.");
+    } finally {
+        // Libera o botão após 2 segundos (tempo de "cooldown" visual)
+        setTimeout(() => {
+            btn.classList.remove('processing');
+            btn.style.opacity = "1";
+            btn.style.pointerEvents = "auto";
+        }, 2000);
     }
 }
 
@@ -329,12 +368,16 @@ function showToast(message) {
 
 async function carregarUltimosRegistros() {
     const tbody = document.getElementById('log-table-body');
+    const btn = document.getElementById('btn-registrar');
+    const btnText = document.getElementById('btn-text');
+    
     if (!tbody) return;
 
     try {
         const res = await fetch('/api/ponto');
         const dados = await res.json();
 
+        // 1. Atualiza a tabela com os registros
         tbody.innerHTML = dados.map(r => `
             <tr>
                 <td>${r.tipo}</td>
@@ -346,8 +389,23 @@ async function carregarUltimosRegistros() {
                 </td>
             </tr>
         `).join('');
+
+        // 2. Sincroniza o estado do botão com o último registro
+        if (dados.length > 0 && btn && btnText) {
+            const ultimoRegistro = dados[0]; // O primeiro do array é o mais recente devido ao ORDER BY DESC
+
+            if (ultimoRegistro.tipo === 'Entrada') {
+                // Se o último foi entrada, o próximo deve ser saída
+                btn.classList.add('saida');
+                btnText.innerHTML = "REGISTRAR<br>SAÍDA";
+            } else {
+                // Se o último foi saída (ou não há registros), o próximo é entrada
+                btn.classList.remove('saida');
+                btnText.innerHTML = "REGISTRAR<br>ENTRADA";
+            }
+        }
     } catch (e) {
-        console.error(e);
+        console.error("Erro ao sincronizar estado do ponto:", e);
     }
 }
 
@@ -385,5 +443,46 @@ async function carregarHistoricoPerfil() {
         `).join('');
     } catch (e) {
         console.error(e);
+    }
+}
+
+async function carregarAuditoria() {
+    const tbody = document.getElementById('audit-table-body');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch('/api/auditoria');
+        const logs = await res.json();
+
+        if (logs.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        Nenhum registro encontrado
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = logs.map(l => `
+            <tr>
+                <td>
+                    <span class="badge ${
+                        l.acao === 'CREATE' ? 'bg-success' :
+                        l.acao === 'UPDATE' ? 'bg-warning text-dark' :
+                        'bg-danger'
+                    }">
+                        ${l.acao}
+                    </span>
+                </td>
+                <td>${l.usuario_afetado}</td>
+                <td class="fw-bold">${l.executado_por}</td>
+                <td>${new Date(l.data).toLocaleString()}</td>
+            </tr>
+        `).join('');
+
+    } catch (e) {
+        console.error('Erro ao carregar auditoria:', e);
     }
 }
