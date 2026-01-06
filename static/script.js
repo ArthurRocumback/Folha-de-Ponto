@@ -307,45 +307,49 @@ async function carregarOpcoes() {
 async function toggleWork() {
     const btn = document.getElementById('btn-registrar');
     const btnText = document.getElementById('btn-text');
-    
-    // Se o botão já estiver desabilitado, ignora o clique
+
     if (btn.classList.contains('processing')) return;
 
-    // Bloqueia o botão imediatamente
     btn.classList.add('processing');
     btn.style.opacity = "0.5";
     btn.style.pointerEvents = "none";
-    
+
     const isEntrada = !btn.classList.contains('saida');
     const tipo = isEntrada ? 'Entrada' : 'Saída';
 
     try {
+        const localizacao = await obterLocalizacao();
+
         const res = await fetch('/api/ponto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tipo })
+            body: JSON.stringify({
+                tipo,
+                localizacao
+            })
         });
+
+        if (!res.ok) {
+            throw new Error('Erro ao registrar ponto');
+        }
 
         const data = await res.json();
 
-        if (res.ok) {
-            // Lógica de sucesso (troca de estado do botão)
-            if (isEntrada) {
-                btn.classList.add('saida');
-                btnText.innerHTML = "REGISTRAR<br>SAÍDA";
-            } else {
-                btn.classList.remove('saida');
-                btnText.innerHTML = "REGISTRAR<br>ENTRADA";
-            }
-            showToast(`${tipo} registrada com sucesso!`);
-            await carregarUltimosRegistros();
+        if (isEntrada) {
+            btn.classList.add('saida');
+            btnText.innerHTML = "REGISTRAR<br>SAÍDA";
         } else {
-            showToast(data.message || "Erro ao registrar.");
+            btn.classList.remove('saida');
+            btnText.innerHTML = "REGISTRAR<br>ENTRADA";
         }
+
+        showToast(`${tipo} registrada com sucesso!`);
+        await carregarUltimosRegistros();
+
     } catch (e) {
-        showToast("Erro de conexão.");
+        console.error(e);
+        showToast("Erro ao registrar ponto.");
     } finally {
-        // Libera o botão após 2 segundos (tempo de "cooldown" visual)
         setTimeout(() => {
             btn.classList.remove('processing');
             btn.style.opacity = "1";
@@ -370,44 +374,55 @@ async function carregarUltimosRegistros() {
     const tbody = document.getElementById('log-table-body');
     const btn = document.getElementById('btn-registrar');
     const btnText = document.getElementById('btn-text');
-    
+
     if (!tbody) return;
 
     try {
         const res = await fetch('/api/ponto');
+
+        if (!res.ok) {
+            throw new Error('Não autorizado ou erro na API');
+        }
+
         const dados = await res.json();
 
-        // 1. Atualiza a tabela com os registros
-        tbody.innerHTML = dados.map(r => `
-            <tr>
-                <td>${r.tipo}</td>
-                <td>${new Date(r.horario).toLocaleTimeString()}</td>
-                <td>
-                    <span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}">
-                        OK
-                    </span>
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = dados.map(r => {
+            const dt = new Date(r.horario + 'Z');
 
-        // 2. Sincroniza o estado do botão com o último registro
+            return `
+                <tr>
+                    <td>${r.tipo}</td>
+                    <td>${dt.toLocaleDateString('pt-BR')}</td>
+                    <td>${dt.toLocaleTimeString('pt-BR')}</td>
+                    <td>
+                        <span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}"> OK </span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Sincroniza botão com último registro
         if (dados.length > 0 && btn && btnText) {
-            const ultimoRegistro = dados[0]; // O primeiro do array é o mais recente devido ao ORDER BY DESC
+            const ultimo = dados[0];
 
-            if (ultimoRegistro.tipo === 'Entrada') {
-                // Se o último foi entrada, o próximo deve ser saída
+            if (ultimo.tipo === 'Entrada') {
                 btn.classList.add('saida');
                 btnText.innerHTML = "REGISTRAR<br>SAÍDA";
             } else {
-                // Se o último foi saída (ou não há registros), o próximo é entrada
                 btn.classList.remove('saida');
                 btnText.innerHTML = "REGISTRAR<br>ENTRADA";
             }
         }
+        if (dados.length > 0) {
+            document.getElementById('location-text').innerText =
+                dados[0].localizacao || 'Localização não disponível';
+        }
+
     } catch (e) {
-        console.error("Erro ao sincronizar estado do ponto:", e);
+        console.error("Erro ao carregar últimos registros:", e);
     }
 }
+
 
 async function carregarHistoricoPerfil() {
     const tbody = document.getElementById('perfil-historico-body');
@@ -428,19 +443,23 @@ async function carregarHistoricoPerfil() {
             return;
         }
 
-        tbody.innerHTML = dados.map(r => `
-            <tr>
-                <td>${new Date(r.data).toLocaleDateString()}</td>
-                <td>${r.tipo}</td>
-                <td>${r.horario}</td>
-                <td>${r.localizacao || '-'}</td>
-                <td>
-                    <span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}">
-                        OK
-                    </span>
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = dados.map(r => {
+            const dt = new Date(r.horario);
+
+            return `
+                <tr>
+                    <td>${dt.toLocaleDateString('pt-BR')}</td>
+                    <td>${r.tipo}</td>
+                    <td>${dt.toLocaleTimeString('pt-BR')}</td>
+                    <td>${r.localizacao}</td>
+                    <td>
+                        <span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}">
+                            OK
+                        </span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     } catch (e) {
         console.error(e);
     }

@@ -113,6 +113,34 @@ def init_db():
             'INSERT INTO cargos (nome) VALUES (?)', cargos
         )
 
+    # ===============================
+    # USUÁRIO ADMINISTRADOR PADRÃO
+    # ===============================
+    cursor.execute('SELECT COUNT(*) FROM usuarios')
+    total_usuarios = cursor.fetchone()[0]
+
+    if total_usuarios == 0:
+        cursor.execute(
+            '''
+            INSERT INTO usuarios
+            (nome, email, departamento, cargo, unidade, nivel_acesso, senha, matricula, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                'adm',
+                'adm@local',
+                'TI',
+                'Administrador',
+                'Matriz',
+                'Administrador',
+                '123',
+                'ADM001',
+                'Ativo'
+            )
+        )
+
+        print('Usuário administrador padrão criado (adm / 123)')
+
     conn.commit()
     conn.close()
     print("Banco de dados inicializado com sucesso!")
