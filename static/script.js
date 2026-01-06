@@ -486,3 +486,22 @@ async function carregarAuditoria() {
         console.error('Erro ao carregar auditoria:', e);
     }
 }
+
+function obterLocalizacao() {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+            return resolve(null);
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                resolve({
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude
+                });
+            },
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    });
+}

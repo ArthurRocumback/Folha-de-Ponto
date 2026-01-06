@@ -76,11 +76,17 @@ def init_db():
         CREATE TABLE IF NOT EXISTS registros_ponto (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             usuario_id INTEGER NOT NULL,
-            tipo TEXT NOT NULL,
+            tipo TEXT NOT NULL, -- Entrada / Saída
             horario TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            localizacao TEXT,
+
+            latitude REAL,
+            longitude REAL,
+            ip TEXT,
+            user_agent TEXT,
+            endereco TEXT,
+
             FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
-        )
+        );
     """)
 
     # ===============================

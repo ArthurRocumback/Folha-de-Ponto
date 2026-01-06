@@ -237,37 +237,37 @@ def listar_auditoria():
 # ======================================================
 @app.route('/api/ponto', methods=['POST'])
 def registrar_ponto():
-    """Registra entrada ou saída"""
     dados = request.json
     tipo = dados.get('tipo')
 
+    localizacao = dados.get('localizacao') or {}
+
+    latitude = localizacao.get('latitude')
+    longitude = localizacao.get('longitude')
+
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    user_agent = request.headers.get('User-Agent')
+
     conn = get_db_connection()
-
-    ultimo = conn.execute(
-        '''
-        SELECT tipo FROM registros_ponto
-        WHERE usuario_id = ?
-        ORDER BY horario DESC LIMIT 1
-        ''',
-        (session['user_id'],)
-    ).fetchone()
-
-    if ultimo and ultimo['tipo'] == tipo:
-        conn.close()
-        return jsonify({"success": False, "message": "Registro duplicado"}), 400
-
     conn.execute(
         '''
-        INSERT INTO registros_ponto (usuario_id, tipo)
-        VALUES (?, ?)
+        INSERT INTO registros_ponto
+        (usuario_id, tipo, latitude, longitude, ip, user_agent)
+        VALUES (?, ?, ?, ?, ?, ?)
         ''',
-        (session['user_id'], tipo)
+        (
+            session['user_id'],
+            tipo,
+            latitude,
+            longitude,
+            ip,
+            user_agent
+        )
     )
-
     conn.commit()
     conn.close()
-    return jsonify({"success": True})
 
+    return jsonify({"success": True})
 
 @app.route('/api/ponto', methods=['GET'])
 def listar_pontos():
