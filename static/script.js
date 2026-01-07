@@ -1,6 +1,9 @@
 /**
  * ESTADO E CONFIGURAÇÃO
  */
+let auditoriaDados = [];
+let auditoriaPaginaAtual = 1;
+const AUDITORIA_POR_PAGINA = 15;
 let usuarioEmEdicaoId = null;
 
 /**
@@ -466,54 +469,91 @@ async function carregarAuditoria() {
 
     try {
         const res = await fetch('/api/auditoria');
-        const logs = await res.json();
+        auditoriaDados = await res.json();
 
-        if (logs.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center text-muted py-4">
-                        Nenhum registro encontrado
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        tbody.innerHTML = logs.map(l => {
-
-            let badgeClass = 'bg-secondary';
-
-            if (l.acao === 'CREATE') {
-                badgeClass = 'bg-success';
-            } 
-            else if (l.acao === 'UPDATE') {
-                badgeClass = 'bg-warning text-dark';
-            } 
-            else if (l.acao === 'DELETE') {
-                badgeClass = 'bg-danger';
-            }
-            else if (l.acao === 'PONTO_ENTRADA') {
-                badgeClass = 'bg-primary';
-            }
-            else if (l.acao === 'PONTO_SAÍDA') {
-                badgeClass = 'bg-dark';
-            }
-
-            return `
-                <tr>
-                    <td>
-                        <span class="badge ${badgeClass}">
-                            ${l.acao}
-                        </span>
-                    </td>
-                    <td>${l.usuario_afetado}</td>
-                    <td class="fw-bold">${l.executado_por}</td>
-                    <td>${new Date(l.data).toLocaleString()}</td>
-                </tr>
-            `;
-        }).join('');
+        auditoriaPaginaAtual = 1;
+        renderizarTabelaAuditoria();
+        renderizarPaginacaoAuditoria();
 
     } catch (e) {
         console.error('Erro ao carregar auditoria:', e);
     }
 }
+
+function renderizarTabelaAuditoria() {
+    const tbody = document.getElementById('audit-table-body');
+
+    const inicio = (auditoriaPaginaAtual - 1) * AUDITORIA_POR_PAGINA;
+    const fim = inicio + AUDITORIA_POR_PAGINA;
+
+    const pagina = auditoriaDados.slice(inicio, fim);
+
+    const totalRegistros = auditoriaDados.length;
+
+    tbody.innerHTML = pagina.map((l, index) => {
+
+        // Número global invertido:
+        // mais antigo = 1 | mais recente = total
+        const numeroItem = totalRegistros - (inicio + index);
+
+        // Formata para 5 dígitos → 00001
+        const numeroFormatado = String(numeroItem).padStart(5, '0');
+
+        let badgeClass = 'bg-secondary';
+        if (l.acao === 'CREATE') badgeClass = 'bg-success';
+        else if (l.acao === 'UPDATE') badgeClass = 'bg-warning text-dark';
+        else if (l.acao === 'DELETE') badgeClass = 'bg-danger';
+        else if (l.acao === 'PONTO_ENTRADA') badgeClass = 'bg-primary';
+        else if (l.acao === 'PONTO_SAÍDA') badgeClass = 'bg-dark';
+
+        return `
+            <tr>
+                <td class="copy-cell text-muted fw-bold">${numeroFormatado}</td>
+                <td class="copy-cell"><span class="badge ${badgeClass}">${l.acao}</span></td>
+                <td class="copy-cell">${l.usuario_afetado}</td>
+                <td class="copy-cell fw-bold">${l.executado_por}</td>
+                <td class="copy-cell">${new Date(l.data).toLocaleString()}</td>
+            </tr>
+        `;
+    }).join('');
+
+}
+function renderizarPaginacaoAuditoria() {
+    const pag = document.getElementById('audit-pagination');
+    if (!pag) return;
+
+    pag.innerHTML = '';
+    const total = Math.ceil(auditoriaDados.length / AUDITORIA_POR_PAGINA);
+
+    for (let i = 1; i <= total; i++) {
+        pag.innerHTML += `
+            <li class="page-item ${i === auditoriaPaginaAtual ? 'active' : ''}">
+                <button class="page-link"
+                    onclick="auditoriaPaginaAtual=${i};
+                             renderizarTabelaAuditoria();
+                             renderizarPaginacaoAuditoria();">
+                    ${i}
+                </button>
+            </li>
+        `;
+    }
+}
+
+function copiarTexto(texto) {
+    if (!texto) return;
+
+    navigator.clipboard.writeText(texto).then(() => {
+        showToast('Texto Copiado');
+    }).catch(err => {
+        console.error('Erro ao copiar:', err);
+        showToast('Erro ao copiar');
+    });
+}
+
+
+document.addEventListener('click', function (e) {
+    const cell = e.target.closest('.copy-cell');
+    if (!cell) return;
+
+    copiarTexto(cell.innerText.trim());
+});
