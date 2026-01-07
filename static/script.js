@@ -318,22 +318,18 @@ async function toggleWork() {
     const tipo = isEntrada ? 'Entrada' : 'Saída';
 
     try {
-        const localizacao = await obterLocalizacao();
-
+        // 🔥 AGORA O FETCH EXISTE
         const res = await fetch('/api/ponto', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                tipo,
-                localizacao
-            })
+            body: JSON.stringify({ tipo })
         });
 
         if (!res.ok) {
             throw new Error('Erro ao registrar ponto');
         }
 
-        const data = await res.json();
+        await res.json(); // mantém padrão, mesmo que não use retorno
 
         if (isEntrada) {
             btn.classList.add('saida');
@@ -444,14 +440,13 @@ async function carregarHistoricoPerfil() {
         }
 
         tbody.innerHTML = dados.map(r => {
-            const dt = new Date(r.horario);
+            const dt = new Date(r.horario + 'Z');
 
             return `
                 <tr>
                     <td>${dt.toLocaleDateString('pt-BR')}</td>
                     <td>${r.tipo}</td>
                     <td>${dt.toLocaleTimeString('pt-BR')}</td>
-                    <td>${r.localizacao}</td>
                     <td>
                         <span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}">
                             OK
@@ -484,43 +479,41 @@ async function carregarAuditoria() {
             return;
         }
 
-        tbody.innerHTML = logs.map(l => `
-            <tr>
-                <td>
-                    <span class="badge ${
-                        l.acao === 'CREATE' ? 'bg-success' :
-                        l.acao === 'UPDATE' ? 'bg-warning text-dark' :
-                        'bg-danger'
-                    }">
-                        ${l.acao}
-                    </span>
-                </td>
-                <td>${l.usuario_afetado}</td>
-                <td class="fw-bold">${l.executado_por}</td>
-                <td>${new Date(l.data).toLocaleString()}</td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = logs.map(l => {
+
+            let badgeClass = 'bg-secondary';
+
+            if (l.acao === 'CREATE') {
+                badgeClass = 'bg-success';
+            } 
+            else if (l.acao === 'UPDATE') {
+                badgeClass = 'bg-warning text-dark';
+            } 
+            else if (l.acao === 'DELETE') {
+                badgeClass = 'bg-danger';
+            }
+            else if (l.acao === 'PONTO_ENTRADA') {
+                badgeClass = 'bg-primary';
+            }
+            else if (l.acao === 'PONTO_SAÍDA') {
+                badgeClass = 'bg-dark';
+            }
+
+            return `
+                <tr>
+                    <td>
+                        <span class="badge ${badgeClass}">
+                            ${l.acao}
+                        </span>
+                    </td>
+                    <td>${l.usuario_afetado}</td>
+                    <td class="fw-bold">${l.executado_por}</td>
+                    <td>${new Date(l.data).toLocaleString()}</td>
+                </tr>
+            `;
+        }).join('');
 
     } catch (e) {
         console.error('Erro ao carregar auditoria:', e);
     }
-}
-
-function obterLocalizacao() {
-    return new Promise((resolve) => {
-        if (!navigator.geolocation) {
-            return resolve(null);
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                resolve({
-                    latitude: pos.coords.latitude,
-                    longitude: pos.coords.longitude
-                });
-            },
-            () => resolve(null),
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    });
 }
