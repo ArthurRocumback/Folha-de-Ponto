@@ -45,10 +45,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('log-table-body')) {
         carregarUltimosRegistros();
     }
+    if (document.getElementById('gestor-estagiarios-body')) {
+        carregarDashboardGestor();
+    }
 });
 
-
-/**
+/*
  * LÓGICA DE LOGIN (Resolve o problema de recarregamento)
  */
 function initLoginForm() {
@@ -683,5 +685,59 @@ function atualizarObrigatoriedadeGestor() {
     } else {
         gestor.removeAttribute('required');
         gestor.value = '';
+    }
+}
+
+async function carregarDashboardGestor() {
+
+    // ===== ESTAGIÁRIOS =====
+    const tbodyEst = document.getElementById('gestor-estagiarios-body');
+    if (tbodyEst) {
+        const res = await fetch('/api/gestor/estagiarios');
+        const dados = await res.json();
+
+        // KPIs
+        document.getElementById('total-estagiarios').innerText = dados.length;
+        document.getElementById('estagiarios-ativos').innerText =
+            dados.filter(e => e.status === 'Ativo').length;
+
+        tbodyEst.innerHTML = dados.map(e => `
+            <tr>
+                <td>${e.nome}</td>
+                <td>${e.email}</td>
+                <td>${e.departamento || '-'}</td>
+                <td>
+                    <span class="badge-status ${
+                        e.status === 'Ativo' ? 'badge-ativo' : 'badge-inativo'
+                    }">
+                        ${e.status}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // ===== AUDITORIA =====
+    const tbodyAud = document.getElementById('gestor-auditoria-body');
+    if (tbodyAud) {
+        const res = await fetch('/api/gestor/estagiarios/auditoria');
+        const dadosAud = await res.json();
+
+        document.getElementById('total-atividades').innerText = dadosAud.length;
+
+        tbodyAud.innerHTML = dadosAud.map(l => `
+            <tr>
+                <td>
+                    <span class="badge-ponto ${
+                        l.tipo_ponto === 'Entrada' ? 'badge-entrada' : 'badge-saida'
+                    }">
+                        ${l.tipo_ponto}
+                    </span>
+                </td>
+                <td>${l.usuario_afetado}</td>
+                <td>${l.executado_por}</td>
+                <td>${new Date(l.data).toLocaleString('pt-BR')}</td>
+            </tr>
+        `).join('');
     }
 }

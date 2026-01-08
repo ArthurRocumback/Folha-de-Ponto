@@ -169,26 +169,49 @@ def api_login():
     conn = get_db_connection()
     user = conn.execute(
         '''
-        SELECT * FROM usuarios
-        WHERE (matricula = ? OR email = ?) AND senha = ?
+        SELECT *
+        FROM usuarios
+        WHERE (matricula = ? OR email = ?)
+          AND senha = ?
         ''',
         (username, username, password)
     ).fetchone()
     conn.close()
 
     if not user:
-        return jsonify({"success": False, "message": "Usuário ou senha inválidos"}), 401
+        return jsonify({
+            "success": False,
+            "message": "Usuário ou senha inválidos"
+        }), 401
 
-    # Criação da sessão
+    # ============================
+    # CRIAÇÃO DA SESSÃO
+    # ============================
     session.permanent = True
     session['user_id'] = user['id']
     session['user_nome'] = user['nome']
     session['user_nivel'] = user['nivel_acesso']
+    session['user_cargo'] = user['cargo']   # 🔴 importante para regras futuras
 
-    # 🔴 NOVO: auditoria de login
+    # Auditoria de login
     registrar_auditoria('LOGIN', user['nome'])
 
-    return jsonify({"success": True, "redirect": url_for('dashboard')})
+    # ============================
+    # DEFINIÇÃO DO DESTINO (RBAC)
+    # ============================
+
+    # Padrão: dashboard comum (usuário ou estagiário)
+    redirect_url = url_for('dashboard')
+
+    # Se NÃO for administrador e NÃO for estagiário → é gestor
+    if (
+        user['nivel_acesso'] != 'Administrador'
+        and user['cargo']
+        and 'estagiário' not in user['cargo'].lower()
+    ):
+        redirect_url = url_for('dashboard_gestor')
+
+    return jsonify({"success": True,"redirect": redirect_url})
 
 
 # ======================================================
@@ -211,28 +234,50 @@ def get_perfil():
 # ======================================================
 @app.route('/api/auditoria', methods=['GET'])
 def listar_auditoria():
-    """
-    Retorna os registros de auditoria
-    para exibição na tela administrativa.
-    """
-    if session.get('user_nivel') != 'Administrador':
-        return jsonify({"error": "Acesso negado"}), 403
+    user_nome = session.get('user_nome')
+    user_nivel = session.get('user_nivel')
 
     conn = get_db_connection()
+
+    # 🔴 ADMINISTRADOR → vê tudo
+    if user_nivel == 'Administrador':
+        logs = conn.execute(
+            '''
+            SELECT
+                a.acao,
+                a.usuario_afetado,
+                a.executado_por,
+                a.data
+            FROM auditoria_usuarios a
+            ORDER BY a.data DESC
+            '''
+        ).fetchall()
+
+        conn.close()
+        return jsonify([dict(l) for l in logs])
+
+    # 🟡 GESTOR → vê apenas estagiários vinculados a ele
     logs = conn.execute(
         '''
         SELECT
-            acao,
-            usuario_afetado,
-            executado_por,
-            data
-        FROM auditoria_usuarios
-        ORDER BY data DESC
-        '''
+            a.acao,
+            a.usuario_afetado,
+            a.executado_por,
+            a.data
+        FROM auditoria_usuarios a
+        JOIN usuarios u
+            ON u.nome = a.usuario_afetado
+        WHERE
+            u.gestor = ?
+            AND LOWER(u.cargo) LIKE '%estagiário%'
+        ORDER BY a.data DESC
+        ''',
+        (user_nome,)
     ).fetchall()
-    conn.close()
 
+    conn.close()
     return jsonify([dict(l) for l in logs])
+
 
 
 # ======================================================
@@ -544,6 +589,59 @@ def excluir_usuario(user_id):
 
     return jsonify({"success": True})
 
+@app.route('/dashboard-gestor')
+def dashboard_gestor():
+    cargo = session.get('user_cargo', '').lower()
+
+    if 'estagiário' in cargo:
+        return redirect(url_for('dashboard'))
+
+    return render_template('dashboard_gestor.html')
+
+
+@app.route('/api/gestor/estagiarios', methods=['GET'])
+def gestor_estagiarios():
+    nome_gestor = session.get('user_nome')
+
+    conn = get_db_connection()
+    estagiarios = conn.execute(
+        '''
+        SELECT id, nome, email, departamento, status
+        FROM usuarios
+        WHERE gestor = ?
+          AND LOWER(cargo) LIKE '%estagiário%'
+        ORDER BY nome
+        ''',
+        (nome_gestor,)
+    ).fetchall()
+    conn.close()
+
+    return jsonify([dict(e) for e in estagiarios])
+
+@app.route('/api/gestor/estagiarios/auditoria', methods=['GET'])
+def gestor_auditoria_estagiarios():
+    nome_gestor = session.get('user_nome')
+
+    conn = get_db_connection()
+    logs = conn.execute(
+        '''
+        SELECT
+            a.acao,
+            a.usuario_afetado,
+            a.executado_por,
+            a.data,
+            a.tipo_ponto
+        FROM auditoria_usuarios a
+        JOIN usuarios u ON u.nome = a.usuario_afetado
+        WHERE u.gestor = ?
+        ORDER BY a.data DESC
+        LIMIT 50
+        ''',
+        (nome_gestor,)
+    ).fetchall()
+
+    conn.close()
+    return jsonify([dict(l) for l in logs])
 
 # ======================================================
 # OPÇÕES PARA SELECTS (DEPARTAMENTOS / CARGOS)
@@ -554,7 +652,7 @@ def get_opcoes():
     conn = get_db_connection()
     deps = conn.execute('SELECT nome FROM departamentos').fetchall()
     cargos = conn.execute('SELECT nome FROM cargos').fetchall()
-    gestores = conn.execute('''SELECT nome FROM usuarios WHERE cargo IS NOT NULL AND LOWER(cargo) != 'estagiário' ORDER BY nome ''').fetchall()
+    gestores = conn.execute('''SELECT nome FROM usuarios WHERE cargo IS NOT NULL AND LOWER(cargo) NOT LIKE '%estagiário%' ORDER BY nome ''').fetchall()
     conn.close()
 
     return jsonify({
