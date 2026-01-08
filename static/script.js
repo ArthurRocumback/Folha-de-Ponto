@@ -30,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formUser) formUser.addEventListener('submit', salvarUsuario);
     }
 
-    // ✅ AQUI É O QUE VOCÊ NÃO TINHA ENTENDIDO
     if (document.getElementById('log-table-body')) {
         carregarUltimosRegistros();
     }
@@ -470,11 +469,9 @@ async function carregarAuditoria() {
     try {
         const res = await fetch('/api/auditoria');
         auditoriaDados = await res.json();
-
         auditoriaPaginaAtual = 1;
         renderizarTabelaAuditoria();
         renderizarPaginacaoAuditoria();
-
     } catch (e) {
         console.error('Erro ao carregar auditoria:', e);
     }
@@ -518,25 +515,107 @@ function renderizarTabelaAuditoria() {
     }).join('');
 
 }
+function mudarPagina(num) {
+    const totalPaginas = Math.ceil(auditoriaDados.length / AUDITORIA_POR_PAGINA);
+    if (num < 1 || num > totalPaginas) return;
+    
+    auditoriaPaginaAtual = num;
+    renderizarTabelaAuditoria();
+    renderizarPaginacaoAuditoria();
+    
+    // Rola a tabela para o topo ao mudar de página
+    const container = document.querySelector('.audit-scroll');
+    if (container) container.scrollTop = 0;
+}
+
+/**
+ * Renderiza a paginação inteligente (com suporte a muitas páginas)
+ */
 function renderizarPaginacaoAuditoria() {
-    const pag = document.getElementById('audit-pagination');
-    if (!pag) return;
+    const pagContainer = document.getElementById('audit-pagination');
+    if (!pagContainer) return;
 
-    pag.innerHTML = '';
-    const total = Math.ceil(auditoriaDados.length / AUDITORIA_POR_PAGINA);
+    const totalPaginas = Math.ceil(auditoriaDados.length / AUDITORIA_POR_PAGINA);
+    if (totalPaginas <= 1) {
+        pagContainer.innerHTML = '';
+        return;
+    }
 
-    for (let i = 1; i <= total; i++) {
-        pag.innerHTML += `
+    let html = '';
+    const maxVizinhas = 2; // Quantas páginas mostrar antes e depois da atual
+
+    // Botão Anterior
+    html += `
+        <li class="page-item ${auditoriaPaginaAtual === 1 ? 'disabled' : ''}">
+            <button class="page-link" onclick="mudarPagina(${auditoriaPaginaAtual - 1})">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+        </li>
+    `;
+
+    // Primeira Página e reticências iniciais
+    if (auditoriaPaginaAtual > maxVizinhas + 1) {
+        html += `
+            <li class="page-item">
+                <button class="page-link" onclick="mudarPagina(1)">1</button>
+            </li>
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+        `;
+    }
+
+    // Páginas ao redor da atual
+    for (let i = Math.max(1, auditoriaPaginaAtual - maxVizinhas); i <= Math.min(totalPaginas, auditoriaPaginaAtual + maxVizinhas); i++) {
+        html += `
             <li class="page-item ${i === auditoriaPaginaAtual ? 'active' : ''}">
-                <button class="page-link"
-                    onclick="auditoriaPaginaAtual=${i};
-                             renderizarTabelaAuditoria();
-                             renderizarPaginacaoAuditoria();">
-                    ${i}
-                </button>
+                <button class="page-link" onclick="mudarPagina(${i})">${i}</button>
             </li>
         `;
     }
+
+    // Reticências finais e Última Página
+    if (auditoriaPaginaAtual < totalPaginas - maxVizinhas) {
+        html += `
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            <li class="page-item">
+                <button class="page-link" onclick="mudarPagina(${totalPaginas})">${totalPaginas}</button>
+            </li>
+        `;
+    }
+
+    // Botão Próximo
+    html += `
+        <li class="page-item ${auditoriaPaginaAtual === totalPaginas ? 'disabled' : ''}">
+            <button class="page-link" onclick="mudarPagina(${auditoriaPaginaAtual + 1})">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </li>
+    `;
+
+    pagContainer.innerHTML = html;
+}
+
+function testarPaginacao(quantidadePaginas = 10) {
+    const totalRegistros = quantidadePaginas * AUDITORIA_POR_PAGINA;
+    const dadosMock = [];
+
+    for (let i = 1; i <= totalRegistros; i++) {
+        dadosMock.push({
+            id: i,
+            acao: i % 2 === 0 ? 'UPDATE' : 'CREATE',
+            usuario_afetado: `Usuário Teste ${i}`,
+            executado_por: 'Administrador',
+            data: new Date().toISOString()
+        });
+    }
+
+    // Substitui os dados reais pelos simulados
+    auditoriaDados = dadosMock;
+    auditoriaPaginaAtual = 1;
+    
+    renderizarTabelaAuditoria();
+    renderizarPaginacaoAuditoria();
+    
+    console.log(`Teste ativado: ${totalRegistros} registros criados (~${quantidadePaginas} páginas).`);
 }
 
 function copiarTexto(texto) {

@@ -340,7 +340,7 @@ def listar_ausencias():
 # ======================================================
 @app.route('/api/usuarios', methods=['GET'])
 def listar_usuarios():
-    """Lista usuários (admin)"""
+    # Lista usuários (admin)
     if session.get('user_nivel') != 'Administrador':
         return jsonify({"error": "Acesso negado"}), 403
 
