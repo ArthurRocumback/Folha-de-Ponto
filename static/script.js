@@ -26,18 +26,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('user-table-body')) {
         carregarOpcoes();
         carregarTabelaUsuarios();
+
         const formUser = document.getElementById('formAddUser');
         if (formUser) formUser.addEventListener('submit', salvarUsuario);
+
+        const cargoSelect = document.getElementById('cargo');
+        if (cargoSelect) {
+            cargoSelect.addEventListener('change', atualizarObrigatoriedadeGestor);
+        }
     }
 
+    // ✅ AUDITORIA
+    if (document.getElementById('audit-table-body')) {
+        carregarAuditoria();
+    }
+
+    // ✅ DASHBOARD – ÚLTIMOS REGISTROS
     if (document.getElementById('log-table-body')) {
         carregarUltimosRegistros();
     }
-    if (document.getElementById('audit-table-body')) {
-    carregarAuditoria();
-}
-
 });
+
 
 /**
  * LÓGICA DE LOGIN (Resolve o problema de recarregamento)
@@ -139,6 +148,14 @@ async function carregarTabelaUsuarios() {
     }
 }
 
+function novoUsuario() {
+    usuarioEmEdicaoId = null;
+
+    document.getElementById('formAddUser').reset();
+    document.getElementById('modalUserTitle').innerText = 'Criar Usuário';
+    atualizarObrigatoriedadeGestor();
+}
+
 function editarUsuario(id) {
     usuarioEmEdicaoId = id;
 
@@ -153,13 +170,16 @@ function editarUsuario(id) {
             document.getElementById('departamento').value = u.departamento;
             document.getElementById('cargo').value = u.cargo;
             document.getElementById('matricula').value = u.matricula;
+            document.getElementById('gestor').value = u.gestor;
             document.getElementById('nivel_acesso').value = u.nivel_acesso;
             document.getElementById('senha').value = '';
 
-            document.querySelector('#addUserModal h5').innerText = 'Editar Usuário';
+            document.getElementById('modalUserTitle').innerText = 'Editar Usuário';
 
+            atualizarObrigatoriedadeGestor(); // 👈 AQUI
             new bootstrap.Modal(document.getElementById('addUserModal')).show();
         });
+        atualizarObrigatoriedadeGestor();
 }
 
 
@@ -200,6 +220,7 @@ async function salvarUsuario(e) {
         email: document.getElementById('email').value,
         departamento: document.getElementById('departamento').value,
         cargo: document.getElementById('cargo').value,
+        gestor: document.getElementById('gestor').value,
         matricula: document.getElementById('matricula').value,
         nivel_acesso: document.getElementById('nivel_acesso').value,
         status: document.getElementById('status').value
@@ -224,7 +245,17 @@ async function salvarUsuario(e) {
         });
 
         if (!res.ok) {
-            throw new Error('Erro ao salvar usuário');
+            let mensagem = 'Erro ao salvar usuário';
+
+            try {
+                const err = await res.json();
+                mensagem = err.error || mensagem;
+            } catch (err) {
+            console.error(err);
+            alert(err.message);
+        }
+
+            throw new Error(mensagem);
         }
 
         bootstrap.Modal
@@ -237,7 +268,7 @@ async function salvarUsuario(e) {
 
     } catch (err) {
         console.error(err);
-        alert('Erro ao salvar usuário');
+        alert(err.message);
     }
 }
 
@@ -268,11 +299,6 @@ async function carregarPerfilUsuario() {
     } catch (e) { console.error(e); }
 }
 
-// Chame essa função no DOMContentLoaded para que funcione em todas as páginas
-document.addEventListener('DOMContentLoaded', () => {
-    // ... outros inits
-    carregarPerfilUsuario(); 
-});
 /**
  * UTILITÁRIOS
  */
@@ -296,6 +322,7 @@ function initSidebarActive() {
 async function carregarOpcoes() {
     const depSelect = document.getElementById('departamento');
     const cargoSelect = document.getElementById('cargo');
+    const gestorSelect = document.getElementById('gestor');
     if(!depSelect) return;
     
     try {
@@ -303,6 +330,12 @@ async function carregarOpcoes() {
         const data = await res.json();
         depSelect.innerHTML = data.departamentos.map(d => `<option value="${d}">${d}</option>`).join('');
         cargoSelect.innerHTML = data.cargos.map(c => `<option value="${c}">${c}</option>`).join('');
+
+        if (gestorSelect) {
+            gestorSelect.innerHTML =
+                `<option value="">Selecione um gestor</option>` + data.gestores .map(g => `<option value="${g}">${g}</option>`)
+            .join('');
+        }
     } catch (e) { console.error(e); }
 }
 
@@ -636,3 +669,19 @@ document.addEventListener('click', function (e) {
 
     copiarTexto(cell.innerText.trim());
 });
+
+function atualizarObrigatoriedadeGestor() {
+    const cargoEl = document.getElementById('cargo');
+    const gestor = document.getElementById('gestor');
+
+    if (!cargoEl || !gestor) return;
+
+    const cargo = cargoEl.value.toLowerCase();
+
+    if (cargo.includes('estagiário')) {
+        gestor.setAttribute('required', 'required');
+    } else {
+        gestor.removeAttribute('required');
+        gestor.value = '';
+    }
+}

@@ -11,6 +11,11 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def coluna_existe(cursor, tabela, coluna):
+    cursor.execute(f"PRAGMA table_info({tabela})")
+    colunas = [c[1] for c in cursor.fetchall()]
+    return coluna in colunas
+
 def init_db():
     """
     Cria todas as tabelas necessárias para o sistema.
@@ -54,6 +59,14 @@ def init_db():
             data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # ===============================
+    # COLUNA GESTOR (EVITA DUPLICAÇÃO)
+    # ===============================
+    if not coluna_existe(cursor, 'usuarios', 'gestor'):
+        cursor.execute(
+            'ALTER TABLE usuarios ADD COLUMN gestor TEXT'
+        )
 
     # ===============================
     # AUDITORIA DE USUÁRIOS (NOVA)

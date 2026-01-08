@@ -74,23 +74,21 @@ def add_header(response):
 # FUNÇÃO DE AUDITORIA (REGISTRA AÇÕES EM USUÁRIOS)
 # ======================================================
 def registrar_auditoria(acao, usuario_afetado_nome):
-    """
-    Registra CREATE / UPDATE / DELETE de usuários.
-    Usa o nome do usuário afetado (não ID).
-    Blindado para não quebrar a ação principal.
-    """
     try:
+        executado_por = session.get('user_nome') or 'Sistema'
+
         conn = get_db_connection()
         conn.execute(
             '''
             INSERT INTO auditoria_usuarios
-            (acao, usuario_afetado, executado_por)
-            VALUES (?, ?, ?)
+            (acao, usuario_afetado_id, usuario_afetado, executado_por)
+            VALUES (?, ?, ?, ?)
             ''',
             (
                 acao,
+                None,
                 usuario_afetado_nome,
-                session.get('user_nome')
+                executado_por
             )
         )
         conn.commit()
@@ -338,6 +336,28 @@ def listar_ausencias():
 # ======================================================
 # USUÁRIOS (ADMIN) + AUDITORIA
 # ======================================================
+
+def gestor_valido(nome_gestor):
+    if not nome_gestor:
+        return None
+
+    conn = get_db_connection()
+    gestor = conn.execute(
+        '''
+        SELECT cargo
+        FROM usuarios
+        WHERE nome = ?
+        ''',
+        (nome_gestor,)
+    ).fetchone()
+    conn.close()
+
+    if not gestor or not gestor['cargo']:
+        return None
+
+    return 'estagiário' not in gestor['cargo'].lower()
+
+
 @app.route('/api/usuarios', methods=['GET'])
 def listar_usuarios():
     # Lista usuários (admin)
@@ -361,29 +381,53 @@ def criar_usuario():
 
     dados = request.json
 
+    cargo = dados.get('cargo', '')
+    gestor = dados.get('gestor')
+
+    if 'estagiário' in cargo.lower() and not gestor:
+        return jsonify({"error": "Estagiário deve ter um gestor"}), 400
+
     if not dados.get('senha'):
         return jsonify({"error": "Senha é obrigatória"}), 400
+    
+    gestor = dados.get('gestor')
+    if gestor and not gestor_valido(gestor):
+        return jsonify({"error": "Gestor inválido"}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        '''
-        INSERT INTO usuarios
-        (nome, email, departamento, cargo, nivel_acesso, senha, matricula, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''',
-        (
-            dados['nome'],
-            dados['email'],
-            dados['departamento'],
-            dados['cargo'],
-            dados['nivel_acesso'],
-            dados['senha'],
-            dados['matricula'],
-            dados.get('status', 'Ativo')
+    try:
+        cursor.execute(
+            '''
+            INSERT INTO usuarios
+            (nome, email, departamento, cargo, gestor, nivel_acesso, senha, matricula, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                dados['nome'],
+                dados['email'],
+                dados['departamento'],
+                dados['cargo'],
+                gestor,
+                dados['nivel_acesso'],
+                dados['senha'],
+                dados['matricula'],
+                dados.get('status', 'Ativo')
+            )
         )
-    )
+        conn.commit()
+
+    except sqlite3.IntegrityError as e:
+        conn.close()
+
+        if 'usuarios.email' in str(e):
+            return jsonify({"error": "E-mail já cadastrado"}), 400
+
+        if 'usuarios.matricula' in str(e):
+            return jsonify({"error": "Matrícula já cadastrada"}), 400
+
+        return jsonify({"error": "Erro de integridade no banco"}), 400
 
     conn.commit()
     conn.close()
@@ -394,23 +438,42 @@ def criar_usuario():
 
 @app.route('/api/usuarios/<int:user_id>', methods=['PUT'])
 def atualizar_usuario(user_id):
-    """Edita usuário + auditoria"""
+    # 🔒 Permissão
     if session.get('user_nivel') != 'Administrador':
         return jsonify({"error": "Acesso negado"}), 403
 
     dados = request.json
+
+    cargo = dados.get('cargo', '')
+    gestor = dados.get('gestor')
+
+    # 🔒 Regra: estagiário precisa de gestor
+    if 'estagiário' in cargo.lower() and not gestor:
+        return jsonify({"error": "Estagiário deve ter um gestor"}), 400
+
+    # 🔒 Regra: gestor não pode ser estagiário
+    if gestor and not gestor_valido(gestor):
+        return jsonify({"error": "Gestor inválido"}), 400
+
     conn = get_db_connection()
 
+    # 🔎 Usuário atual (para auditoria)
     usuario = conn.execute(
         'SELECT nome FROM usuarios WHERE id = ?',
         (user_id,)
     ).fetchone()
 
+    if not usuario:
+        conn.close()
+        return jsonify({"error": "Usuário não encontrado"}), 404
+
+    # 🔧 Campos base
     campos = [
         dados['nome'],
         dados['email'],
         dados['departamento'],
         dados['cargo'],
+        gestor,
         dados['nivel_acesso'],
         dados['matricula'],
         dados.get('status', 'Ativo')
@@ -418,26 +481,46 @@ def atualizar_usuario(user_id):
 
     sql = '''
         UPDATE usuarios
-        SET nome = ?, email = ?, departamento = ?, cargo = ?,
-            nivel_acesso = ?, matricula = ?, status = ?
+        SET nome = ?, 
+            email = ?, 
+            departamento = ?, 
+            cargo = ?,
+            gestor = ?, 
+            nivel_acesso = ?, 
+            matricula = ?, 
+            status = ?
     '''
 
-    if 'senha' in dados:
+    # 🔑 Senha só atualiza se vier preenchida
+    if 'senha' in dados and dados['senha']:
         sql += ', senha = ?'
         campos.append(dados['senha'])
 
     sql += ' WHERE id = ?'
     campos.append(user_id)
 
-    conn.execute(sql, campos)
-    conn.commit()
+    try:
+        conn.execute(sql, campos)
+        conn.commit()
+
+    except sqlite3.IntegrityError as e:
+        conn.close()
+
+        if 'usuarios.email' in str(e):
+            return jsonify({"error": "E-mail já cadastrado"}), 400
+
+        if 'usuarios.matricula' in str(e):
+            return jsonify({"error": "Matrícula já cadastrada"}), 400
+
+        return jsonify({"error": "Erro de integridade no banco"}), 400
+
     conn.close()
 
-    if usuario:
-        registrar_auditoria('UPDATE', usuario['nome'])
+    # 📝 Auditoria
+    registrar_auditoria('UPDATE', usuario['nome'])
 
     return jsonify({"success": True})
-
+    
 
 @app.route('/api/usuarios/<int:user_id>', methods=['DELETE'])
 def excluir_usuario(user_id):
@@ -471,11 +554,13 @@ def get_opcoes():
     conn = get_db_connection()
     deps = conn.execute('SELECT nome FROM departamentos').fetchall()
     cargos = conn.execute('SELECT nome FROM cargos').fetchall()
+    gestores = conn.execute('''SELECT nome FROM usuarios WHERE cargo IS NOT NULL AND LOWER(cargo) != 'estagiário' ORDER BY nome ''').fetchall()
     conn.close()
 
     return jsonify({
         "departamentos": [d['nome'] for d in deps],
-        "cargos": [c['nome'] for c in cargos]
+        "cargos": [c['nome'] for c in cargos],
+        "gestores": [g['nome'] for g in gestores]
     })
 
 
