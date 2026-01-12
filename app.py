@@ -629,14 +629,15 @@ def gestor_auditoria_estagiarios():
             a.acao,
             a.usuario_afetado,
             a.executado_por,
-            a.data,
-            a.tipo_ponto
+            a.data
         FROM auditoria_usuarios a
         JOIN usuarios u ON u.nome = a.usuario_afetado
-        WHERE u.gestor = ?
+        WHERE
+            u.gestor = ?
+            AND LOWER(u.cargo) LIKE '%estagiário%'
         ORDER BY a.data DESC
-        LIMIT 50
-        ''',
+        '''
+        ,
         (nome_gestor,)
     ).fetchall()
 

@@ -5,6 +5,8 @@ let auditoriaDados = [];
 let auditoriaPaginaAtual = 1;
 const AUDITORIA_POR_PAGINA = 15;
 let usuarioEmEdicaoId = null;
+let gestorEstagiarios = [];
+let gestorAtividades = [];
 
 /**
  * INICIALIZAÇÃO
@@ -35,6 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
             cargoSelect.addEventListener('change', atualizarObrigatoriedadeGestor);
         }
     }
+    const filtroGestor = document.getElementById('filtro-gestor');
+        if (filtroGestor) {
+            filtroGestor.addEventListener('input', aplicarFiltroGestor);
+        }
 
     // ✅ AUDITORIA
     if (document.getElementById('audit-table-body')) {
@@ -688,56 +694,123 @@ function atualizarObrigatoriedadeGestor() {
     }
 }
 
+function formatarAcaoPonto(acao) {
+    if (acao === 'PONTO_ENTRADA') {
+        return `<span class="badge-ponto badge-entrada">Entrada</span>`;
+    }
+
+    if (acao === 'PONTO_SAÍDA') {
+        return `<span class="badge-ponto badge-saida">Saída</span>`;
+    }
+
+    return `<span class="badge bg-secondary">${acao}</span>`;
+}
+
 async function carregarDashboardGestor() {
 
     // ===== ESTAGIÁRIOS =====
     const tbodyEst = document.getElementById('gestor-estagiarios-body');
     if (tbodyEst) {
         const res = await fetch('/api/gestor/estagiarios');
-        const dados = await res.json();
-
-        // KPIs
-        document.getElementById('total-estagiarios').innerText = dados.length;
-        document.getElementById('estagiarios-ativos').innerText =
-            dados.filter(e => e.status === 'Ativo').length;
-
-        tbodyEst.innerHTML = dados.map(e => `
-            <tr>
-                <td>${e.nome}</td>
-                <td>${e.email}</td>
-                <td>${e.departamento || '-'}</td>
-                <td>
-                    <span class="badge-status ${
-                        e.status === 'Ativo' ? 'badge-ativo' : 'badge-inativo'
-                    }">
-                        ${e.status}
-                    </span>
-                </td>
-            </tr>
-        `).join('');
+        gestorEstagiarios = await res.json();
     }
 
-    // ===== AUDITORIA =====
+    // ===== ATIVIDADES =====
     const tbodyAud = document.getElementById('gestor-auditoria-body');
     if (tbodyAud) {
         const res = await fetch('/api/gestor/estagiarios/auditoria');
-        const dadosAud = await res.json();
-
-        document.getElementById('total-atividades').innerText = dadosAud.length;
-
-        tbodyAud.innerHTML = dadosAud.map(l => `
-            <tr>
-                <td>
-                    <span class="badge-ponto ${
-                        l.tipo_ponto === 'Entrada' ? 'badge-entrada' : 'badge-saida'
-                    }">
-                        ${l.tipo_ponto}
-                    </span>
-                </td>
-                <td>${l.usuario_afetado}</td>
-                <td>${l.executado_por}</td>
-                <td>${new Date(l.data).toLocaleString('pt-BR')}</td>
-            </tr>
-        `).join('');
+        gestorAtividades = await res.json();
     }
+
+    // Render inicial (sem filtro)
+    aplicarFiltroGestor();
+}
+
+function aplicarFiltroGestor() {
+    const termo = document
+        .getElementById('filtro-gestor')
+        .value
+        .toLowerCase()
+        .trim();
+
+    // ===== ESTAGIÁRIOS =====
+    const estagiariosFiltrados = gestorEstagiarios.filter(e =>
+        e.nome.toLowerCase().includes(termo) ||
+        (e.email && e.email.toLowerCase().includes(termo))
+    );
+
+    // ===== ATIVIDADES =====
+    const atividadesFiltradas = gestorAtividades.filter(a =>
+        a.usuario_afetado.toLowerCase().includes(termo)
+    );
+
+    renderizarTabelaEstagiarios(estagiariosFiltrados);
+    renderizarTabelaAtividades(atividadesFiltradas);
+
+    // ===== KPIs =====
+    document.getElementById('total-estagiarios').innerText =
+        estagiariosFiltrados.length;
+
+    document.getElementById('estagiarios-ativos').innerText =
+        estagiariosFiltrados.filter(e => e.status === 'Ativo').length;
+
+    document.getElementById('total-atividades').innerText =
+        atividadesFiltradas.length;
+}
+
+function renderizarTabelaEstagiarios(dados) {
+    const tbody = document.getElementById('gestor-estagiarios-body');
+    if (!tbody) return;
+
+    if (dados.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center text-muted py-3">
+                    Nenhum estagiário encontrado
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = dados.map(e => `
+        <tr>
+            <td>${e.nome}</td>
+            <td>${e.email}</td>
+            <td>${e.departamento || '-'}</td>
+            <td>
+                <span class="badge-status ${
+                    e.status === 'Ativo'
+                        ? 'badge-ativo'
+                        : 'badge-inativo'
+                }">
+                    ${e.status}
+                </span>
+            </td>
+        </tr>
+    `).join('');
+}
+function renderizarTabelaAtividades(dados) {
+    const tbody = document.getElementById('gestor-auditoria-body');
+    if (!tbody) return;
+
+    if (dados.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center text-muted py-3">
+                    Nenhuma atividade encontrada
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = dados.map(l => `
+        <tr>
+            <td>${formatarAcaoPonto(l.acao)}</td>
+            <td>${l.usuario_afetado}</td>
+            <td>${l.executado_por}</td>
+            <td>${new Date(l.data).toLocaleString('pt-BR')}</td>
+        </tr>
+    `).join('');
 }

@@ -67,6 +67,10 @@
     color: #fff !important;
 }
 
+#filtro-gestor {
+    border-radius: 8px;
+    background-color: #f8f9fa;
+}
 /* RESPONSIVIDADE */
 @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
