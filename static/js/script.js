@@ -1,64 +1,69 @@
 /**
- * ESTADO E CONFIGURAÇÃO
+ * @param {number} totalItens - Total de registros após o filtro
+ * @param {number} itensPorPagina - Quantidade de itens por página
+ * @param {number} paginaAtual - A página que está ativa no momento
+ * @param {string} containerId - O ID do elemento <ul> onde a paginação será inserida
+ * @param {string} callbackNome - O nome da função (string) que será chamada ao clicar
  */
+
+let gestorAtividadesFiltradas = [];
+let pagAtualGestor = 1;
+const POR_PAGINA_GESTOR = 20;
+
 let auditoriaDados = [];
 let auditoriaPaginaAtual = 1;
-const AUDITORIA_POR_PAGINA = 15;
+const AUDITORIA_POR_PAGINA = 90;
+
 let usuarioEmEdicaoId = null;
 let gestorEstagiarios = [];
 let gestorAtividades = [];
 
-/**
- * INICIALIZAÇÃO
- */
+
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
     setInterval(initClock, 1000);
     initSidebarActive();
+
+    // Carrega o perfil se estiver no Dashboard ou na página de Perfil
+    if (document.getElementById('user-nome-dash') || document.getElementById('user-nome-card')) {
+        carregarPerfilUsuario();
+    }
 
     if (document.getElementById('loginForm')) {
         initLoginForm();
     }
 
     if (document.getElementById('perfil-historico-body')) {
-        carregarPerfilUsuario();
         carregarHistoricoPerfil();
     }
 
     if (document.getElementById('user-table-body')) {
         carregarOpcoes();
         carregarTabelaUsuarios();
-
+        
         const formUser = document.getElementById('formAddUser');
         if (formUser) formUser.addEventListener('submit', salvarUsuario);
 
-        const cargoSelect = document.getElementById('cargo');
-        if (cargoSelect) {
-            cargoSelect.addEventListener('change', atualizarObrigatoriedadeGestor);
+        const selectCargo = document.getElementById('cargo');
+        if (selectCargo) {
+            selectCargo.addEventListener('change', atualizarObrigatoriedadeGestor);
         }
     }
-    const filtroGestor = document.getElementById('filtro-gestor');
-        if (filtroGestor) {
-            filtroGestor.addEventListener('input', aplicarFiltroGestor);
-        }
 
-    // ✅ AUDITORIA
     if (document.getElementById('audit-table-body')) {
         carregarAuditoria();
     }
 
-    // ✅ DASHBOARD – ÚLTIMOS REGISTROS
     if (document.getElementById('log-table-body')) {
         carregarUltimosRegistros();
     }
+
     if (document.getElementById('gestor-estagiarios-body')) {
         carregarDashboardGestor();
     }
 });
 
-/*
- * LÓGICA DE LOGIN (Resolve o problema de recarregamento)
- */
+/* LÓGICA DE LOGIN (Resolve o problema de recarregamento) */
 function initLoginForm() {
     const loginForm = document.getElementById('loginForm');
     
@@ -136,8 +141,9 @@ async function carregarTabelaUsuarios() {
                         u.status === 'Ativo' ? 'bg-success' :
                         u.status === 'Férias' ? 'bg-warning text-dark' :
                         u.status === 'Atestado' ? 'bg-info text-dark' :
-                        u.status === 'Licença' ? 'bg-primary' :
-                        'bg-secondary'
+                        u.status === 'Licença' ? 'bg-secondary' :
+                        u.status === 'Em Contratação' ? 'bg-danger' :
+                        'bg-dark' // Inativo
                     }">
                         ${u.status || 'Ativo'}
                     </span>
@@ -159,7 +165,10 @@ async function carregarTabelaUsuarios() {
 function novoUsuario() {
     usuarioEmEdicaoId = null;
 
-    document.getElementById('formAddUser').reset();
+    const form = document.getElementById('formAddUser');
+    form.reset();
+    form.classList.remove('was-validated'); // 👈 ADICIONE ESTA LINHA
+
     document.getElementById('modalUserTitle').innerText = 'Criar Usuário';
     atualizarObrigatoriedadeGestor();
 }
@@ -202,47 +211,54 @@ async function confirmarExclusao(id, nome) {
 
         if (res.ok) {
             carregarTabelaUsuarios();
-            alert('Usuário excluído com sucesso.');
+            showToast('Usuário excluído com sucesso.', 'success'); // 👈 Aqui
         } else {
-            alert('Erro ao excluir usuário.');
+            showToast('Erro ao excluir usuário.', 'error'); // 👈 Aqui
         }
     } catch (e) {
         console.error(e);
-        alert('Erro de conexão.');
+        showToast('Erro de conexão com o servidor.', 'error'); // 👈 Aqui
     }
 }
 
 async function salvarUsuario(e) {
     e.preventDefault();
+    const form = e.target;
+    const inputSenha = document.getElementById('senha');
 
-    const senhaValor = document.getElementById('senha').value;
+    // 1. Ajusta dinamicamente se a SENHA é obrigatória (só na criação)
+    if (!usuarioEmEdicaoId) {
+        inputSenha.setAttribute('required', 'required');
+    } else {
+        inputSenha.removeAttribute('required');
+    }
 
-    // ✅ VALIDAÇÃO: senha obrigatória apenas na criação
-    if (!usuarioEmEdicaoId && !senhaValor) {
-        alert('Senha é obrigatória para novos usuários');
+    // 2. VALIDAÇÃO VISUAL DO BOOTSTRAP
+    if (!form.checkValidity()) {
+        e.stopPropagation();
+        form.classList.add('was-validated'); // Pinta os campos inválidos de vermelho
+        showToast("Preencha os campos obrigatórios destacados em vermelho.", "error");
         return;
     }
 
+    // Se chegou aqui, o formulário está válido. Removemos a classe de validação.
+    form.classList.remove('was-validated');
+
+    // 3. Coleta dos dados
     const dados = {
         nome: document.getElementById('nome').value,
         email: document.getElementById('email').value,
         departamento: document.getElementById('departamento').value,
         cargo: document.getElementById('cargo').value,
         gestor: document.getElementById('gestor').value,
-        matricula: document.getElementById('matricula').value,
+        matricula: document.getElementById('matricula').value.toLowerCase(),
         nivel_acesso: document.getElementById('nivel_acesso').value,
         status: document.getElementById('status').value
     };
 
-    // Só envia senha se foi preenchida
-    if (senhaValor) {
-        dados.senha = senhaValor;
-    }
+    if (inputSenha.value) dados.senha = inputSenha.value;
 
-    const url = usuarioEmEdicaoId
-        ? `/api/usuarios/${usuarioEmEdicaoId}`
-        : '/api/usuarios';
-
+    const url = usuarioEmEdicaoId ? `/api/usuarios/${usuarioEmEdicaoId}` : '/api/usuarios';
     const method = usuarioEmEdicaoId ? 'PUT' : 'POST';
 
     try {
@@ -253,43 +269,29 @@ async function salvarUsuario(e) {
         });
 
         if (!res.ok) {
-            let mensagem = 'Erro ao salvar usuário';
-
-            try {
-                const err = await res.json();
-                mensagem = err.error || mensagem;
-            } catch (err) {
-            console.error(err);
-            alert(err.message);
+            const err = await res.json();
+            throw new Error(err.error || 'Erro ao salvar usuário');
         }
 
-            throw new Error(mensagem);
-        }
-
-        bootstrap.Modal
-            .getInstance(document.getElementById('addUserModal'))
-            .hide();
-
+        bootstrap.Modal.getInstance(document.getElementById('addUserModal')).hide();
         usuarioEmEdicaoId = null;
-        e.target.reset();
+        form.reset();
         carregarTabelaUsuarios();
+        showToast("Usuário salvo com sucesso!", "success");
 
     } catch (err) {
         console.error(err);
-        alert(err.message);
+        showToast(err.message, "error");
     }
 }
 
-/**
- * PERFIL DO UTILIZADOR
- */
+/** PERFIL DO UTILIZADOR */
 async function carregarPerfilUsuario() {
     try {
         const res = await fetch('/api/perfil');
         if (!res.ok) return;
         const user = await res.json();
 
-        // Mapeamento de IDs que podem existir tanto no Dashboard quanto no Perfil
         const campos = {
             'user-nome-card': user.nome,
             'user-nome-dash': user.nome,
@@ -304,8 +306,9 @@ async function carregarPerfilUsuario() {
             const el = document.getElementById(id);
             if (el && campos[id]) el.innerText = campos[id];
         }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('Erro ao carregar perfil:', e); }
 }
+
 
 /**
  * UTILITÁRIOS
@@ -398,16 +401,32 @@ async function toggleWork() {
 }
 
 
-function showToast(message) {
+function showToast(message, type = 'success') {
     const toastEl = document.getElementById('liveToast');
     const toastMsg = document.getElementById('toast-message');
-    if (toastEl && toastMsg) {
+    const toastHeader = document.getElementById('toast-header');
+    const toastTitle = document.getElementById('toast-title');
+
+    if (toastEl && toastMsg && toastHeader) {
         toastMsg.innerText = message;
-        const toast = new bootstrap.Toast(toastEl);
+
+        toastHeader.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+
+        if (type === 'success') {
+            toastHeader.classList.add('bg-success');
+            toastTitle.innerText = "Sucesso";
+        } else if (type === 'error') {
+            toastHeader.classList.add('bg-danger');
+            toastTitle.innerText = "Erro";
+        } else {
+            toastHeader.classList.add('bg-warning');
+            toastTitle.innerText = "Aviso";
+        }
+
+        const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
         toast.show();
     }
 }
-
 
 async function carregarUltimosRegistros() {
     const tbody = document.getElementById('log-table-body');
@@ -418,32 +437,25 @@ async function carregarUltimosRegistros() {
 
     try {
         const res = await fetch('/api/ponto');
-
-        if (!res.ok) {
-            throw new Error('Não autorizado ou erro na API');
-        }
+        if (!res.ok) throw new Error('Erro na API');
 
         const dados = await res.json();
 
         tbody.innerHTML = dados.map(r => {
             const dt = new Date(r.horario + 'Z');
-
             return `
                 <tr>
                     <td>${r.tipo}</td>
                     <td>${dt.toLocaleDateString('pt-BR')}</td>
                     <td>${dt.toLocaleTimeString('pt-BR')}</td>
-                    <td>
-                        <span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}"> OK </span>
-                    </td>
+                    <td><span class="badge ${r.tipo === 'Entrada' ? 'bg-success' : 'bg-dark'}"> OK </span></td>
                 </tr>
             `;
         }).join('');
 
-        // Sincroniza botão com último registro
+        // Sincroniza o botão de registro
         if (dados.length > 0 && btn && btnText) {
             const ultimo = dados[0];
-
             if (ultimo.tipo === 'Entrada') {
                 btn.classList.add('saida');
                 btnText.innerHTML = "REGISTRAR<br>SAÍDA";
@@ -452,16 +464,10 @@ async function carregarUltimosRegistros() {
                 btnText.innerHTML = "REGISTRAR<br>ENTRADA";
             }
         }
-        if (dados.length > 0) {
-            document.getElementById('location-text').innerText =
-                dados[0].localizacao || 'Localização não disponível';
-        }
-
     } catch (e) {
-        console.error("Erro ao carregar últimos registros:", e);
+        console.error("Erro ao carregar registros:", e);
     }
 }
-
 
 async function carregarHistoricoPerfil() {
     const tbody = document.getElementById('perfil-historico-body');
@@ -503,19 +509,20 @@ async function carregarHistoricoPerfil() {
     }
 }
 
-async function carregarAuditoria() {
-    const tbody = document.getElementById('audit-table-body');
-    if (!tbody) return;
-
-    try {
-        const res = await fetch('/api/auditoria');
-        auditoriaDados = await res.json();
-        auditoriaPaginaAtual = 1;
-        renderizarTabelaAuditoria();
-        renderizarPaginacaoAuditoria();
-    } catch (e) {
-        console.error('Erro ao carregar auditoria:', e);
-    }
+function carregarAuditoria() {
+    fetch('/api/auditoria')
+        .then(res => res.json())
+        .then(dados => {
+            auditoriaDados = dados;
+            renderizarTabelaAuditoria();
+            renderizarPaginacaoModular(
+                auditoriaDados.length, 
+                AUDITORIA_POR_PAGINA, 
+                auditoriaPaginaAtual, 
+                'audit-pagination', 
+                'mudarPagina'
+            );
+        });
 }
 
 function renderizarTabelaAuditoria() {
@@ -556,108 +563,65 @@ function renderizarTabelaAuditoria() {
     }).join('');
 
 }
-function mudarPagina(num) {
-    const totalPaginas = Math.ceil(auditoriaDados.length / AUDITORIA_POR_PAGINA);
-    if (num < 1 || num > totalPaginas) return;
-    
-    auditoriaPaginaAtual = num;
-    renderizarTabelaAuditoria();
-    renderizarPaginacaoAuditoria();
-    
-    // Rola a tabela para o topo ao mudar de página
+
+function mudarPaginaGestor(num) {
+    pagAtualGestor = num;
+    renderizarTabelaAtividades();
+    renderizarPaginacaoModular(
+        gestorAtividadesFiltradas.length, 
+        POR_PAGINA_GESTOR, 
+        pagAtualGestor, 
+        'gestor-pagination', 
+        'mudarPaginaGestor'
+    );
     const container = document.querySelector('.audit-scroll');
     if (container) container.scrollTop = 0;
 }
 
-/**
- * Renderiza a paginação inteligente (com suporte a muitas páginas)
- */
-function renderizarPaginacaoAuditoria() {
-    const pagContainer = document.getElementById('audit-pagination');
-    if (!pagContainer) return;
+function renderizarPaginacaoModular(totalItens, itensPorPagina, paginaAtual, containerId, callbackNome) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-    const totalPaginas = Math.ceil(auditoriaDados.length / AUDITORIA_POR_PAGINA);
+    const totalPaginas = Math.ceil(totalItens / itensPorPagina);
     if (totalPaginas <= 1) {
-        pagContainer.innerHTML = '';
+        container.innerHTML = '';
         return;
     }
 
     let html = '';
-    const maxVizinhas = 2; // Quantas páginas mostrar antes e depois da atual
+    const maxVizinhas = 1;
 
     // Botão Anterior
     html += `
-        <li class="page-item ${auditoriaPaginaAtual === 1 ? 'disabled' : ''}">
-            <button class="page-link" onclick="mudarPagina(${auditoriaPaginaAtual - 1})">
+        <li class="page-item ${paginaAtual === 1 ? 'disabled' : ''}">
+            <button class="page-link" onclick="${callbackNome}(${paginaAtual - 1})">
                 <i class="bi bi-chevron-left"></i>
             </button>
-        </li>
-    `;
+        </li>`;
 
-    // Primeira Página e reticências iniciais
-    if (auditoriaPaginaAtual > maxVizinhas + 1) {
-        html += `
-            <li class="page-item">
-                <button class="page-link" onclick="mudarPagina(1)">1</button>
-            </li>
-            <li class="page-item disabled"><span class="page-link">...</span></li>
-        `;
-    }
-
-    // Páginas ao redor da atual
-    for (let i = Math.max(1, auditoriaPaginaAtual - maxVizinhas); i <= Math.min(totalPaginas, auditoriaPaginaAtual + maxVizinhas); i++) {
-        html += `
-            <li class="page-item ${i === auditoriaPaginaAtual ? 'active' : ''}">
-                <button class="page-link" onclick="mudarPagina(${i})">${i}</button>
-            </li>
-        `;
-    }
-
-    // Reticências finais e Última Página
-    if (auditoriaPaginaAtual < totalPaginas - maxVizinhas) {
-        html += `
-            <li class="page-item disabled"><span class="page-link">...</span></li>
-            <li class="page-item">
-                <button class="page-link" onclick="mudarPagina(${totalPaginas})">${totalPaginas}</button>
-            </li>
-        `;
+    // Lógica de páginas (Primeira, Vizinhas, Última)
+    for (let i = 1; i <= totalPaginas; i++) {
+        if (i === 1 || i === totalPaginas || (i >= paginaAtual - maxVizinhas && i <= paginaAtual + maxVizinhas)) {
+            html += `
+                <li class="page-item ${i === paginaAtual ? 'active' : ''}">
+                    <button class="page-link" onclick="${callbackNome}(${i})">${i}</button>
+                </li>`;
+        } else if (i === paginaAtual - (maxVizinhas + 1) || i === paginaAtual + (maxVizinhas + 1)) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
     }
 
     // Botão Próximo
     html += `
-        <li class="page-item ${auditoriaPaginaAtual === totalPaginas ? 'disabled' : ''}">
-            <button class="page-link" onclick="mudarPagina(${auditoriaPaginaAtual + 1})">
+        <li class="page-item ${paginaAtual === totalPaginas ? 'disabled' : ''}">
+            <button class="page-link" onclick="${callbackNome}(${paginaAtual + 1})">
                 <i class="bi bi-chevron-right"></i>
             </button>
-        </li>
-    `;
+        </li>`;
 
-    pagContainer.innerHTML = html;
+    container.innerHTML = html;
 }
 
-function testarPaginacao(quantidadePaginas = 10) {
-    const totalRegistros = quantidadePaginas * AUDITORIA_POR_PAGINA;
-    const dadosMock = [];
-
-    for (let i = 1; i <= totalRegistros; i++) {
-        dadosMock.push({
-            id: i,
-            acao: i % 2 === 0 ? 'UPDATE' : 'CREATE',
-            usuario_afetado: `Usuário Teste ${i}`,
-            executado_por: 'Administrador',
-            data: new Date().toISOString()
-        });
-    }
-
-    // Substitui os dados reais pelos simulados
-    auditoriaDados = dadosMock;
-    auditoriaPaginaAtual = 1;
-    
-    renderizarTabelaAuditoria();
-    renderizarPaginacaoAuditoria();
-    
-    console.log(`Teste ativado: ${totalRegistros} registros criados (~${quantidadePaginas} páginas).`);
-}
 
 function copiarTexto(texto) {
     if (!texto) return;
@@ -681,6 +645,7 @@ document.addEventListener('click', function (e) {
 function atualizarObrigatoriedadeGestor() {
     const cargoEl = document.getElementById('cargo');
     const gestor = document.getElementById('gestor');
+    const asterisco = document.getElementById('asterisco-gestor'); // Captura o asterisco
 
     if (!cargoEl || !gestor) return;
 
@@ -688,129 +653,119 @@ function atualizarObrigatoriedadeGestor() {
 
     if (cargo.includes('estagiário')) {
         gestor.setAttribute('required', 'required');
+        if (asterisco) asterisco.classList.remove('d-none');
     } else {
         gestor.removeAttribute('required');
-        gestor.value = '';
+        if (asterisco) asterisco.classList.add('d-none');
     }
 }
 
 function formatarAcaoPonto(acao) {
-    if (acao === 'PONTO_ENTRADA') {
-        return `<span class="badge-ponto badge-entrada">Entrada</span>`;
-    }
-
-    if (acao === 'PONTO_SAÍDA') {
-        return `<span class="badge-ponto badge-saida">Saída</span>`;
-    }
-
-    return `<span class="badge bg-secondary">${acao}</span>`;
-}
-
-async function carregarDashboardGestor() {
-
-    // ===== ESTAGIÁRIOS =====
-    const tbodyEst = document.getElementById('gestor-estagiarios-body');
-    if (tbodyEst) {
-        const res = await fetch('/api/gestor/estagiarios');
-        gestorEstagiarios = await res.json();
-    }
-
-    // ===== ATIVIDADES =====
-    const tbodyAud = document.getElementById('gestor-auditoria-body');
-    if (tbodyAud) {
-        const res = await fetch('/api/gestor/estagiarios/auditoria');
-        gestorAtividades = await res.json();
-    }
-
-    // Render inicial (sem filtro)
-    aplicarFiltroGestor();
-}
-
-function aplicarFiltroGestor() {
-    const termo = document
-        .getElementById('filtro-gestor')
-        .value
-        .toLowerCase()
-        .trim();
-
-    // ===== ESTAGIÁRIOS =====
-    const estagiariosFiltrados = gestorEstagiarios.filter(e =>
-        e.nome.toLowerCase().includes(termo) ||
-        (e.email && e.email.toLowerCase().includes(termo))
-    );
-
-    // ===== ATIVIDADES =====
-    const atividadesFiltradas = gestorAtividades.filter(a =>
-        a.usuario_afetado.toLowerCase().includes(termo)
-    );
-
-    renderizarTabelaEstagiarios(estagiariosFiltrados);
-    renderizarTabelaAtividades(atividadesFiltradas);
-
-    // ===== KPIs =====
-    document.getElementById('total-estagiarios').innerText =
-        estagiariosFiltrados.length;
-
-    document.getElementById('estagiarios-ativos').innerText =
-        estagiariosFiltrados.filter(e => e.status === 'Ativo').length;
-
-    document.getElementById('total-atividades').innerText =
-        atividadesFiltradas.length;
+    const labels = {
+        'PONTO_ENTRADA': { text: 'Entrada', class: 'badge-entrada' },
+        'PONTO_SAÍDA': { text: 'Saída', class: 'badge-saida' },
+        'LOGIN': { text: 'LOGIN', class: 'badge-neutral' },
+        'LOGOUT': { text: 'LOGOUT', class: 'badge-neutral' },
+        'UPDATE': { text: 'UPDATE', class: 'badge-neutral' }
+    };
+    const item = labels[acao] || { text: acao, class: 'badge-neutral' };
+    return `<span class="badge-ponto ${item.class}">${item.text}</span>`;
 }
 
 function renderizarTabelaEstagiarios(dados) {
     const tbody = document.getElementById('gestor-estagiarios-body');
     if (!tbody) return;
-
-    if (dados.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-muted py-3">
-                    Nenhum estagiário encontrado
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
     tbody.innerHTML = dados.map(e => `
         <tr>
-            <td>${e.nome}</td>
-            <td>${e.email}</td>
-            <td>${e.departamento || '-'}</td>
-            <td>
-                <span class="badge-status ${
-                    e.status === 'Ativo'
-                        ? 'badge-ativo'
-                        : 'badge-inativo'
-                }">
+            <td class="fw-bold text-dark">${e.nome}</td>
+            <td class="text-muted small">${e.email}</td>
+            <td class="text-muted fw-bold">${e.departamento || 'TI'}</td>
+            <td class="text-center-column">
+                <span class="badge-status ${e.status === 'Ativo' ? 'badge-ativo' : 'badge-inativo'}">
                     ${e.status}
                 </span>
             </td>
         </tr>
     `).join('');
 }
-function renderizarTabelaAtividades(dados) {
+
+async function carregarDashboardGestor() {
+    // ===== ESTAGIÁRIOS =====
+    const tbodyEst = document.getElementById('gestor-estagiarios-body');
+    if (tbodyEst) {
+        try {
+            const res = await fetch('/api/gestor/estagiarios');
+            gestorEstagiarios = await res.json();
+            
+            // ✅ CORREÇÃO: Chama a função para desenhar a tabela da equipe
+            renderizarTabelaEstagiarios(gestorEstagiarios);
+            
+            // ✅ CORREÇÃO: Atualiza os KPIs de contagem da equipe
+            const totalEstEl = document.getElementById('total-estagiarios');
+            const ativosEl = document.getElementById('estagiarios-ativos');
+            if (totalEstEl) totalEstEl.innerText = gestorEstagiarios.length;
+            if (ativosEl) ativosEl.innerText = gestorEstagiarios.filter(e => e.status === 'Ativo').length;
+
+        } catch (e) { console.error("Erro ao carregar estagiários:", e); }
+    }
+
+    // ===== ATIVIDADES =====
+    const tbodyAud = document.getElementById('gestor-auditoria-body');
+    if (tbodyAud) {
+        try {
+            const res = await fetch('/api/gestor/estagiarios/auditoria');
+            gestorAtividades = await res.json();
+        } catch (e) { console.error("Erro ao carregar auditoria:", e); }
+    }
+
+    const filtroInput = document.getElementById('filtro-gestor');
+    if (filtroInput) {
+        filtroInput.addEventListener('input', aplicarFiltroGestor);
+    }
+
+    aplicarFiltroGestor();
+}
+
+function aplicarFiltroGestor() {
+    const termo = document.getElementById('filtro-gestor').value.toLowerCase().trim();
+
+    // FILTRA APENAS O HISTÓRICO (Não mexe no gestorEstagiarios)
+    gestorAtividadesFiltradas = gestorAtividades.filter(a => {
+        return (a.acao || "").toLowerCase().includes(termo) || 
+               (a.usuario_afetado || "").toLowerCase().includes(termo) || 
+               (a.executado_por || "").toLowerCase().includes(termo) || 
+               new Date(a.data).toLocaleString('pt-BR').toLowerCase().includes(termo);
+    });
+
+    renderizarTabelaAtividades();
+    
+    // REUTILIZANDO A PAGINAÇÃO GENÉRICA
+    renderizarPaginacaoModular(
+        gestorAtividadesFiltradas.length, 
+        POR_PAGINA_GESTOR, 
+        pagAtualGestor, 
+        'gestor-pagination', 
+        'mudarPaginaGestor'
+    );
+
+    const kpiAtividades = document.getElementById('total-atividades');
+    if (kpiAtividades) kpiAtividades.innerText = gestorAtividadesFiltradas.length;
+}
+
+function renderizarTabelaAtividades() {
     const tbody = document.getElementById('gestor-auditoria-body');
     if (!tbody) return;
 
-    if (dados.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-muted py-3">
-                    Nenhuma atividade encontrada
-                </td>
-            </tr>
-        `;
-        return;
-    }
+    const inicio = (pagAtualGestor - 1) * POR_PAGINA_GESTOR;
+    const slicePagina = gestorAtividadesFiltradas.slice(inicio, inicio + POR_PAGINA_GESTOR);
 
-    tbody.innerHTML = dados.map(l => `
+    tbody.innerHTML = slicePagina.map(l => `
         <tr>
             <td>${formatarAcaoPonto(l.acao)}</td>
-            <td>${l.usuario_afetado}</td>
-            <td>${l.executado_por}</td>
-            <td>${new Date(l.data).toLocaleString('pt-BR')}</td>
+            <td class="fw-bold text-dark">${l.usuario_afetado}</td>
+            <td class="text-muted">${l.executado_por}</td>
+            <td class="text-center-column fw-bold text-dark">
+                ${new Date(l.data + 'Z').toLocaleString('pt-BR')}  </td>
         </tr>
     `).join('');
 }

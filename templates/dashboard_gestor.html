@@ -2,54 +2,50 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard do Gestor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Equipe | Ponto Digital</title>
 
-    <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 
-    <!-- Sidebar CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='sidebar.css') }}">
-
-    <!-- ESTILO ESPECÍFICO DO DASHBOARD DO GESTOR -->
     <style>
-        body {
-            background-color: #f1f3f5;
+        :root {
+            --brand-color: #D40015;
+            --bg-color: #f4f7f6;
+            --sidebar-width: 260px;
         }
 
-        .main-content {
-            margin-left: 260px;
-            padding: 40px;
-            min-height: 100vh;
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-color); 
+            color: #333; 
         }
 
-        /* ===== HEADER ===== */
-        .page-header h1 {
-            font-weight: 800;
+        .main-content { 
+            margin-left: var(--sidebar-width); 
+            padding: 40px; 
+            transition: all 0.3s; 
         }
 
-        .page-header p {
-            color: #6c757d;
-        }
-
-        /* ===== SEÇÕES ===== */
-        .dashboard-section {
-            background: #ffffff;
-            border-radius: 18px;
-            padding: 28px;
-            box-shadow: 0 6px 24px rgba(0,0,0,0.04);
-        }
-
-        /* ===== KPI CARDS ===== */
+        /* Estilização Profissional de Cards (Baseada no index.html) */
         .stat-card {
-            background: #f8f9fa;
-            border-radius: 14px;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
+            background: #ffffff;
+            border-radius: 15px;
+            border: 1px solid rgba(0,0,0,0.05);
+            padding: 25px;
+            height: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
 
+        .stat-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05); 
+        }
+
+        /* Restauração das Cores Originais dos Indicadores */
         .metric-icon {
             width: 52px;
             height: 52px;
@@ -58,198 +54,174 @@
             align-items: center;
             justify-content: center;
             font-size: 1.4rem;
+            margin-bottom: 15px;
         }
 
-        .bg-soft-primary {
-            background: rgba(13,110,253,0.15);
-            color: #0d6efd;
+        .bg-soft-primary { background: rgba(13,110,253,0.15); color: #0d6efd; }
+        .bg-soft-success { background: rgba(25,135,84,0.15); color: #198754; }
+        .bg-soft-warning { background: rgba(255,193,7,0.2); color: #b58100; }
+
+        .fw-800 { font-weight: 800; }
+        
+        .table-responsive { background: #fff; border-radius: 10px; }
+        
+        .search-container {
+            max-width: 280px;
+        }
+        .search-container .input-group-text {
+            background: #fff;
+            border-right: none;
+            color: #adb5bd;
+            border-radius: 8px 0 0 8px;
+        }
+        .search-container .form-control {
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+        .search-container .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15); /* Foco azul suave */
+            border-color: #86b7fe;
         }
 
-        .bg-soft-success {
-            background: rgba(25,135,84,0.15);
-            color: #198754;
-        }
-
-        .bg-soft-warning {
-            background: rgba(255,193,7,0.2);
-            color: #b58100;
-        }
-
-        .stat-card h3 {
-            font-weight: 800;
-            margin: 0;
-        }
-
-        /* ===== TABELAS ===== */
+        /* Tabela: Cabeçalhos e Alinhamento */
         .table thead th {
-            font-size: 0.75rem;
-            letter-spacing: 0.6px;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            color: #495057;
+            letter-spacing: 0.05em;
+            color: #999;
+            font-weight: 800;
+            border-bottom: 1px solid #f0f0f0;
+            padding: 12px 8px;
         }
+        .text-center-column { text-align: center; }
 
-        .table-hover tbody tr:hover {
-            background-color: rgba(0,0,0,0.035);
-        }
+        /* Cores de Status - Profissionais */
+        .badge-status { padding: 4px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; }
+        .badge-ativo { background: #e6f4ea; color: #1e7e34; } /* Verde suave */
+        .badge-inativo { background: #fdf2f2; color: #9b1c1c; } /* Vermelho suave */
 
-        .table tbody tr {
-            height: 54px;
-        }
+        /* Cores de Registros (Ponto/Auditoria) */
+        .badge-ponto { padding: 5px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; }
+        .badge-entrada { background: #e6f4ea; color: #1e7e34; }
+        .badge-saida { background: #fff5f5; color: #e03131; }
+        .badge-neutral { background: #f1f3f5; color: #495057; } /* Login/Logout/Update */
+        .badge-login { background: #eef2ff; color: #3730a3; }    /* Azul Indigo */
+        .badge-logout { background: #f3f4f6; color: #374151; }   /* Cinza Escuro */
+        .badge-create { background: #ecfdf5; color: #065f46; }   /* Esmeralda */
+        .badge-update { background: #fffbeb; color: #92400e; }   /* Âmbar */
+        .badge-delete { background: #7f1d1d; color: #ffffff; }   /* Vermelho Sangue */
 
-        /* ===== STATUS ===== */
-        .badge-status {
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 0.7rem;
-            font-weight: 700;
+        /* Ajuste Fino de Tabela */
+        .table thead th { 
+            background-color: #fcfcfc;
+            color: #a0a0a0; 
+            font-size: 0.65rem; 
+            font-weight: 800;
+            border-bottom: 1px solid #eee;
         }
-
-        .badge-ativo {
-            background: rgba(25,135,84,0.15);
-            color: #198754;
-        }
-
-        .badge-inativo {
-            background: rgba(108,117,125,0.15);
-            color: #6c757d;
-        }
-        .badge-ponto {
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 0.7rem;
-            font-weight: 700;
-        }
-
-        .badge-entrada {
-            background: rgba(25, 135, 84, 0.15);
-            color: #198754; /* verde */
-        }
-
-        .badge-saida {
-            background: rgba(220, 53, 69, 0.15);
-            color: #dc3545; /* vermelho */
-        }
+        .fw-600 { font-weight: 600; }
 
         @media (max-width: 768px) {
-            .main-content {
-                margin-left: 0;
-                padding: 20px;
-            }
+            .main-content { margin-left: 0; padding: 20px; }
         }
     </style>
 </head>
-
 <body>
 
 {% include 'partials/sidebar.html' %}
 
 <main class="main-content">
-
-    <!-- HEADER -->
-    <header class="page-header mb-2">
-        <h1 class="h2">Dashboard do Gestor</h1>
-        <p>Acompanhamento dos estagiários sob sua responsabilidade</p>
+    <header class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+            <h1 class="fw-800 h2 mb-1">Dashboard do Gestor</h1>
+            <p class="text-muted">
+                Bem-vindo, <strong id="user-nome-dash">...</strong> • <span id="user-cargo-dash">---</span>
+            </p>
+        </div>
     </header>
 
-    <!-- KPIs -->
-    <div class="dashboard-section mb-4">
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <div class="metric-icon bg-soft-primary">
-                        <i class="bi bi-people-fill"></i>
-                    </div>
-                    <div>
-                        <span class="text-muted small text-uppercase">Total de Estagiários</span>
-                        <h3 id="total-estagiarios">0</h3>
-                    </div>
+    <div class="row g-4 mb-3">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="metric-icon bg-soft-primary">
+                    <i class="bi bi-people-fill"></i>
                 </div>
+                <span class="text-muted small text-uppercase fw-bold">Total de Estagiários</span>
+                <h2 id="total-estagiarios" class="fw-800 mb-0">0</h2>
             </div>
-
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="metric-icon bg-soft-success">
-                        <i class="bi bi-check-circle-fill"></i>
-                    </div>
-                    <div>
-                        <span class="text-muted small text-uppercase">Ativos</span>
-                        <h3 id="estagiarios-ativos">0</h3>
-                    </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="metric-icon bg-soft-success">
+                    <i class="bi bi-check-circle-fill"></i>
                 </div>
+                <span class="text-muted small text-uppercase fw-bold">Estagiários Ativos</span>
+                <h2 id="estagiarios-ativos" class="fw-800 mb-0">0</h2>
             </div>
-
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <div class="metric-icon bg-soft-warning">
-                        <i class="bi bi-clock-history"></i>
-                    </div>
-                    <div>
-                        <span class="text-muted small text-uppercase">Atividades Recentes</span>
-                        <h3 id="total-atividades">0</h3>
-                    </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="metric-icon bg-soft-warning">
+                    <i class="bi bi-clock-history"></i>
                 </div>
+                <span class="text-muted small text-uppercase fw-bold">Atividades Recentes</span>
+                <h2 id="total-atividades" class="fw-800 mb-0">0</h2>
             </div>
         </div>
     </div>
 
-    <!-- ESTAGIÁRIOS -->
-    <div class="dashboard-section mb-3">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="fw-800 mb-0">Estagiários</h5>
-            <span class="text-muted small">Visão geral</span>
-        </div>
-
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Nome</th>
-                        <th>E-mail</th>
-                        <th>Departamento</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="gestor-estagiarios-body"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- ATIVIDADES -->
-    <div class="dashboard-section">
-        <h6 class="fw-800 mb-0">Atividades Recentes</h6>
-        <div class="d-flex justify-content-end mb-3">
-            <div class="input-group input-group-sm custom-filter-group" style="width: 250px">
-                <span class="input-group-text bg-white border-end-0">
-                    <i class="bi bi-search text-primary"></i>
-                </span>
-                <input
-                    type="text"
-                    id="filtro-gestor"
-                    class="form-control border-start-0"
-                    placeholder="Filtrar estagiário"
-                >
+    <div class="row g-4">
+        <div class="col-xl-5">
+            <div class="stat-card">
+                <h5 class="fw-800 mb-4">Sua Equipe</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Email</th>
+                                <th>Setor</th>
+                                <th class="text-center-column">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gestor-estagiarios-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
-
-        <div class="table-responsive">
-            <table class="table table-hover table-sm align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>Ponto</th>
-                        <th>Estagiário</th>
-                        <th>Executado por</th>
-                        <th>Data</th>
-                    </tr>
-                </thead>
-                <tbody id="gestor-auditoria-body"></tbody>
-            </table>
+        <div class="col-xl-7">
+            <div class="stat-card d-flex flex-column" style="height: 600px;"> <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-800 m-0">Histórico da Equipe</h5>
+                    <div class="input-group input-group-sm search-container">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="filtro-gestor" class="form-control" placeholder="Filtrar histórico...">
+                    </div>
+                </div>
+                
+                <div class="table-responsive flex-grow-1 audit-scroll"> 
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="sticky-top bg-white"> <tr>
+                                <th>Registro</th>
+                                <th>Usuário</th>
+                                <th>Quem Executou</th>
+                                <th class="text-center-column">Data/Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gestor-auditoria-body"></tbody>
+                    </table>
+                </div>
+                <div class="mt-3">
+                    <nav class="d-flex justify-content-center">
+                        <ul class="pagination pagination-sm mb-0" id="gestor-pagination"></ul>
+                    </nav>
+                </div>
+            </div>
         </div>
     </div>
-
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='script.js') }}"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

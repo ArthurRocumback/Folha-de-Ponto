@@ -163,7 +163,7 @@ def auditoria():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     dados = request.json
-    username = dados.get('username')
+    username = dados.get('username', '').lower()
     password = dados.get('password')
 
     conn = get_db_connection()
@@ -297,6 +297,7 @@ def registrar_ponto():
     user = conn.execute(
         'SELECT status FROM usuarios WHERE id = ?',
         (session['user_id'],)
+        
     ).fetchone()
 
     if not user or user['status'] != 'Ativo':
@@ -424,7 +425,12 @@ def criar_usuario():
     if session.get('user_nivel') != 'Administrador':
         return jsonify({"error": "Acesso negado"}), 403
 
-    dados = request.json
+    # ✅ CORREÇÃO: Pegamos os dados PRIMEIRO
+    dados = request.json 
+
+    # AGORA podemos mexer nos dados
+    if 'matricula' in dados:
+        dados['matricula'] = dados['matricula'].lower()
 
     cargo = dados.get('cargo', '')
     gestor = dados.get('gestor')
@@ -435,7 +441,7 @@ def criar_usuario():
     if not dados.get('senha'):
         return jsonify({"error": "Senha é obrigatória"}), 400
     
-    gestor = dados.get('gestor')
+    # Validação do gestor
     if gestor and not gestor_valido(gestor):
         return jsonify({"error": "Gestor inválido"}), 400
 
@@ -450,14 +456,14 @@ def criar_usuario():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             (
-                dados['nome'],
-                dados['email'],
-                dados['departamento'],
-                dados['cargo'],
+                dados.get('nome'),
+                dados.get('email'),
+                dados.get('departamento'),
+                dados.get('cargo'),
                 gestor,
-                dados['nivel_acesso'],
-                dados['senha'],
-                dados['matricula'],
+                dados.get('nivel_acesso'),
+                dados.get('senha'),
+                dados.get('matricula'),
                 dados.get('status', 'Ativo')
             )
         )
@@ -474,8 +480,7 @@ def criar_usuario():
 
         return jsonify({"error": "Erro de integridade no banco"}), 400
 
-    conn.commit()
-    conn.close()
+    conn.close() # O commit já foi feito dentro do try, só fechamos aqui
 
     registrar_auditoria('CREATE', dados['nome'])
     return jsonify({"success": True})
@@ -488,6 +493,9 @@ def atualizar_usuario(user_id):
         return jsonify({"error": "Acesso negado"}), 403
 
     dados = request.json
+
+    if 'matricula' in dados:
+        dados['matricula'] = dados['matricula'].lower()
 
     cargo = dados.get('cargo', '')
     gestor = dados.get('gestor')
@@ -621,23 +629,17 @@ def gestor_estagiarios():
 @app.route('/api/gestor/estagiarios/auditoria', methods=['GET'])
 def gestor_auditoria_estagiarios():
     nome_gestor = session.get('user_nome')
-
     conn = get_db_connection()
+
     logs = conn.execute(
         '''
-        SELECT
-            a.acao,
-            a.usuario_afetado,
-            a.executado_por,
-            a.data
+        SELECT a.acao, a.usuario_afetado, a.executado_por, a.data
         FROM auditoria_usuarios a
-        JOIN usuarios u ON u.nome = a.usuario_afetado
-        WHERE
-            u.gestor = ?
-            AND LOWER(u.cargo) LIKE '%estagiário%'
+        WHERE a.usuario_afetado IN (
+            SELECT nome FROM usuarios WHERE gestor = ? AND LOWER(cargo) LIKE '%estagiário%'
+        )
         ORDER BY a.data DESC
-        '''
-        ,
+        ''',
         (nome_gestor,)
     ).fetchall()
 

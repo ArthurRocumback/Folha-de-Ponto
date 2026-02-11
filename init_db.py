@@ -140,7 +140,7 @@ def init_db():
                 'Matriz',
                 'Administrador',
                 '123',
-                'ADM',
+                'adm',
                 'Ativo'
             )
         )
